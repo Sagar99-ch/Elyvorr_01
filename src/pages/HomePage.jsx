@@ -1,6 +1,6 @@
 import Layout from "../components/layout/Layout";
 import Hero from "../components/home/Hero/Hero";
-import Categories from "../components/home/Categories";
+// import Categories from "../components/home/Categories";
 import FeaturedProducts from "../components/home/FeaturedProducts";
 
 function HomePage() {
@@ -8,7 +8,7 @@ function HomePage() {
     <Layout>
       <Hero />
 
-      <Categories />
+      {/* <Categories /> */}
 
       <FeaturedProducts />
     </Layout>
