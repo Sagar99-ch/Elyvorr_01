@@ -23,9 +23,9 @@ function BagDrawer({ isOpen, onClose }) {
 
   const shipping = subtotal >= 5000 || subtotal === 0 ? 0 : 99;
 
-  const freeShippingRemaining = Math.max(5000 - subtotal, 0);
+  // const freeShippingRemaining = Math.max(5000 - subtotal, 0);
 
-  const progress = Math.min((subtotal / 5000) * 100, 100);
+  // const progress = Math.min((subtotal / 5000) * 100, 100);
 
   const gst = Math.round(subtotal * 0.08);
 
@@ -120,57 +120,6 @@ function BagDrawer({ isOpen, onClose }) {
               ) : (
                 <>
                   {/* SHIPPING PROGRESS */}
-
-                  <div className="rounded-2xl border border-[#E7E1D7] bg-white p-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        {freeShippingRemaining > 0 ? (
-                          <p className="text-sm text-[#555]">
-                            Add{" "}
-                            <span className="font-semibold text-[#C9A96E]">
-                              ₹{freeShippingRemaining.toLocaleString("en-IN")}
-                            </span>{" "}
-                            more to get{" "}
-                            <span className="font-semibold text-[#181818]">
-                              FREE SHIPPING
-                            </span>
-                          </p>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2
-                              size={18}
-                              className="text-[#2F8F46]"
-                            />
-
-                            <p className="text-sm font-semibold text-[#2F8F46]">
-                              Free Shipping Unlocked
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <span className="hidden text-xs text-[#888] sm:block">
-                        ₹5,000
-                      </span>
-                    </div>
-
-                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EEE9E1]">
-                      <div
-                        className="h-full rounded-full bg-[#C9A96E] transition-all duration-500"
-                        style={{
-                          width: `${progress}%`,
-                        }}
-                      />
-                    </div>
-
-                    <div className="mt-2 flex justify-between text-[11px] text-[#999]">
-                      <span>₹0</span>
-
-                      <span>₹{subtotal.toLocaleString("en-IN")} added</span>
-
-                      <span>₹5,000</span>
-                    </div>
-                  </div>
 
                   {/* DELIVERY */}
 

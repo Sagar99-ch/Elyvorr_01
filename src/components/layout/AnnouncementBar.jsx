@@ -6,7 +6,7 @@ function AnnouncementBar() {
       <div className="mx-auto flex h-11 max-w-7xl items-center justify-center gap-10 px-6 text-[12px] font-medium tracking-[1.5px]">
         <div className="flex items-center gap-2">
           <Truck size={15} className="text-[#C9A96E]" />
-          <span>FREE SHIPPING ABOVE ₹5,000</span>
+          <span>FAST SHIPPING</span>
         </div>
 
         <div className="hidden items-center gap-2 md:flex">

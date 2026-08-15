@@ -1,99 +1,219 @@
 import { createContext, useContext, useMemo, useState } from "react";
 
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
 const CartContext = createContext(null);
 
+/*
+==================================================
+CREATE / GET SESSION ID
+==================================================
+*/
+
+function getSessionId() {
+  const storageKey = "elyvorr_session_id";
+
+  let sessionId = localStorage.getItem(storageKey);
+
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+
+    localStorage.setItem(storageKey, sessionId);
+  }
+
+  return sessionId;
+}
+
 export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState([]);
+  /*
+  ==================================================
+  SESSION
+  ==================================================
+  */
 
-  const addToBag = (product) => {
-    setCartItems((currentItems) => {
-      const existingProduct = currentItems.find(
-        (item) => item.id === product.id
-      );
+  const [sessionId] = useState(() => getSessionId());
 
-      if (existingProduct) {
-        return currentItems.map((item) =>
-          item.id === product.id
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item
-        );
-      }
+  /*
+  ==================================================
+  CONVEX QUERY
+  ==================================================
+  */
 
-      return [
-        ...currentItems,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
-    });
+  const cartItems = useQuery(api.cart.getCart, {
+    sessionId,
+  });
+
+  /*
+  ==================================================
+  CONVEX MUTATIONS
+  ==================================================
+  */
+
+  const addItemMutation = useMutation(api.cart.addItem);
+
+  const increaseMutation = useMutation(api.cart.increaseQuantity);
+
+  const decreaseMutation = useMutation(api.cart.decreaseQuantity);
+
+  const removeMutation = useMutation(api.cart.removeItem);
+
+  const clearMutation = useMutation(api.cart.clearCart);
+
+  /*
+  ==================================================
+  ADD TO BAG
+  ==================================================
+  */
+
+  const addToBag = async (product) => {
+    if (!product?.id) {
+      console.error("Product ID is missing");
+      return;
+    }
+
+    try {
+      await addItemMutation({
+        sessionId,
+        productId: product.id,
+      });
+    } catch (error) {
+      console.error("Failed to add product to bag:", error);
+    }
   };
 
-  const increaseQuantity = (productId) => {
-    setCartItems((currentItems) =>
-      currentItems.map((item) =>
-        item.id === productId
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
-      )
-    );
+  /*
+  ==================================================
+  INCREASE QUANTITY
+  ==================================================
+  */
+
+  const increaseQuantity = async (productId) => {
+    try {
+      await increaseMutation({
+        sessionId,
+        productId,
+      });
+    } catch (error) {
+      console.error("Failed to increase quantity:", error);
+    }
   };
 
-  const decreaseQuantity = (productId) => {
-    setCartItems((currentItems) =>
-      currentItems
-        .map((item) =>
-          item.id === productId
-            ? {
-                ...item,
-                quantity: item.quantity - 1,
-              }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
+  /*
+  ==================================================
+  DECREASE QUANTITY
+  ==================================================
+  */
+
+  const decreaseQuantity = async (productId) => {
+    try {
+      await decreaseMutation({
+        sessionId,
+        productId,
+      });
+    } catch (error) {
+      console.error("Failed to decrease quantity:", error);
+    }
   };
 
-  const removeFromBag = (productId) => {
-    setCartItems((currentItems) =>
-      currentItems.filter((item) => item.id !== productId)
-    );
+  /*
+  ==================================================
+  REMOVE FROM BAG
+  ==================================================
+  */
+
+  const removeFromBag = async (productId) => {
+    try {
+      await removeMutation({
+        sessionId,
+        productId,
+      });
+    } catch (error) {
+      console.error("Failed to remove product:", error);
+    }
   };
 
-  const clearBag = () => {
-    setCartItems([]);
+  /*
+  ==================================================
+  CLEAR BAG
+  ==================================================
+  */
+
+  const clearBag = async () => {
+    try {
+      await clearMutation({
+        sessionId,
+      });
+    } catch (error) {
+      console.error("Failed to clear bag:", error);
+    }
   };
+
+  /*
+  ==================================================
+  TOTAL ITEMS
+  ==================================================
+  */
 
   const totalItems = useMemo(() => {
+    if (!cartItems) {
+      return 0;
+    }
+
     return cartItems.reduce((total, item) => total + item.quantity, 0);
   }, [cartItems]);
 
+  /*
+  ==================================================
+  SUBTOTAL
+  ==================================================
+  */
+
   const subtotal = useMemo(() => {
+    if (!cartItems) {
+      return 0;
+    }
+
     return cartItems.reduce(
       (total, item) => total + item.price * item.quantity,
       0
     );
   }, [cartItems]);
 
+  /*
+  ==================================================
+  CONTEXT VALUE
+  ==================================================
+  */
+
   const value = {
-    cartItems,
+    cartItems: cartItems ?? [],
+
+    isLoading: cartItems === undefined,
+
     addToBag,
+
     increaseQuantity,
+
     decreaseQuantity,
+
     removeFromBag,
+
     clearBag,
+
     totalItems,
+
     subtotal,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
+
+/*
+==================================================
+USE CART
+==================================================
+*/
 
 export function useCart() {
   const context = useContext(CartContext);

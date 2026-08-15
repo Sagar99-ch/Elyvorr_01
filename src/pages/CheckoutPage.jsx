@@ -5,19 +5,56 @@ import {
   Lock,
   MapPin,
   Pencil,
-  Plus,
   ShieldCheck,
   Truck,
 } from "lucide-react";
+
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useNavigate } from "react-router-dom";
 
 import Layout from "../components/layout/Layout";
 import { useCart } from "../context/CartContext";
 
 function CheckoutPage() {
+  const navigate = useNavigate();
+
   const { cartItems, subtotal } = useCart();
 
+  // =====================================================
+  // CONVEX
+  // =====================================================
+
+  const saveAddress = useMutation(api.addresses.saveAddress);
+
+  // =====================================================
+  // SESSION ID
+  // =====================================================
+
+  const [sessionId] = useState(() => {
+    const storageKey = "elyvorr_session_id";
+
+    let id = localStorage.getItem(storageKey);
+
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(storageKey, id);
+    }
+
+    return id;
+  });
+
+  // =====================================================
+  // STATE
+  // =====================================================
+
   const [address, setAddress] = useState(null);
+
   const [showForm, setShowForm] = useState(false);
+
+  const [savingAddress, setSavingAddress] = useState(false);
+
+  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     fullName: "",
@@ -28,9 +65,9 @@ function CheckoutPage() {
     pincode: "",
   });
 
-  /* =========================================
-     LOAD SAVED ADDRESS
-  ========================================= */
+  // =====================================================
+  // LOAD SAVED ADDRESS
+  // =====================================================
 
   useEffect(() => {
     const saved = localStorage.getItem("elyvorr_address");
@@ -55,12 +92,14 @@ function CheckoutPage() {
     }
   }, []);
 
-  /* =========================================
-     SAVE ADDRESS
-  ========================================= */
+  // =====================================================
+  // HANDLE INPUT
+  // =====================================================
 
   const handleInput = (event) => {
     const { name, value } = event.target;
+
+    setError("");
 
     setForm((previous) => ({
       ...previous,
@@ -68,34 +107,132 @@ function CheckoutPage() {
     }));
   };
 
-  const handleSaveAddress = (event) => {
+  // =====================================================
+  // SAVE ADDRESS
+  // =====================================================
+
+  const handleSaveAddress = async (event) => {
     event.preventDefault();
 
+    setError("");
+
+    // ---------------------------------------------
+    // BASIC VALIDATION
+    // ---------------------------------------------
+
     if (
-      !form.fullName ||
-      !form.mobile ||
-      !form.address ||
-      !form.city ||
-      !form.state ||
-      !form.pincode
+      !form.fullName.trim() ||
+      !form.mobile.trim() ||
+      !form.address.trim() ||
+      !form.city.trim() ||
+      !form.state.trim() ||
+      !form.pincode.trim()
     ) {
+      setError("Please fill all delivery details.");
+
       return;
     }
 
-    const newAddress = {
-      ...form,
-      country: "India",
-    };
+    // ---------------------------------------------
+    // MOBILE VALIDATION
+    // ---------------------------------------------
 
-    localStorage.setItem("elyvorr_address", JSON.stringify(newAddress));
+    if (!/^[0-9]{10}$/.test(form.mobile.trim())) {
+      setError("Please enter a valid 10 digit mobile number.");
 
-    setAddress(newAddress);
-    setShowForm(false);
+      return;
+    }
+
+    // ---------------------------------------------
+    // PINCODE VALIDATION
+    // ---------------------------------------------
+
+    if (!/^[0-9]{6}$/.test(form.pincode.trim())) {
+      setError("Please enter a valid 6 digit pincode.");
+
+      return;
+    }
+
+    setSavingAddress(true);
+
+    try {
+      // =============================================
+      // SAVE ADDRESS TO CONVEX
+      // =============================================
+
+      await saveAddress({
+        sessionId,
+
+        fullName: form.fullName.trim(),
+
+        mobile: form.mobile.trim(),
+
+        address: form.address.trim(),
+
+        city: form.city.trim(),
+
+        state: form.state.trim(),
+
+        pincode: form.pincode.trim(),
+      });
+
+      // =============================================
+      // LOCAL STORAGE BACKUP
+      // =============================================
+
+      const newAddress = {
+        fullName: form.fullName.trim(),
+
+        mobile: form.mobile.trim(),
+
+        address: form.address.trim(),
+
+        city: form.city.trim(),
+
+        state: form.state.trim(),
+
+        pincode: form.pincode.trim(),
+
+        country: "India",
+      };
+
+      localStorage.setItem("elyvorr_address", JSON.stringify(newAddress));
+
+      // =============================================
+      // UPDATE UI
+      // =============================================
+
+      setAddress(newAddress);
+
+      setShowForm(false);
+
+      setError("");
+    } catch (error) {
+      console.error("Address save error:", error);
+
+      setError(error?.message || "Unable to save address. Please try again.");
+    } finally {
+      setSavingAddress(false);
+    }
   };
 
-  /* =========================================
-     PRICE
-  ========================================= */
+  // =====================================================
+  // PROCEED TO PAYMENT
+  // =====================================================
+
+  const handleProceedToPay = () => {
+    if (!address) {
+      setError("Please add your delivery address first.");
+
+      return;
+    }
+
+    navigate("/checkout/payment");
+  };
+
+  // =====================================================
+  // PRICE
+  // =====================================================
 
   const shipping = subtotal >= 5000 ? 0 : 99;
 
@@ -105,9 +242,9 @@ function CheckoutPage() {
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  /* =========================================
-     EMPTY CART
-  ========================================= */
+  // =====================================================
+  // EMPTY CART
+  // =====================================================
 
   if (cartItems.length === 0) {
     return (
@@ -126,6 +263,10 @@ function CheckoutPage() {
       </Layout>
     );
   }
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
     <Layout>
@@ -177,7 +318,7 @@ function CheckoutPage() {
               ================================================= */}
 
               <section className="overflow-hidden rounded-[26px] border border-[#E2DBD0] bg-white">
-                {/* SECTION HEADER */}
+                {/* HEADER */}
 
                 <div className="flex items-center justify-between border-b border-[#ECE7DF] px-6 py-6 sm:px-8">
                   <div className="flex items-center gap-4">
@@ -199,7 +340,10 @@ function CheckoutPage() {
                   {address && (
                     <button
                       type="button"
-                      onClick={() => setShowForm(true)}
+                      onClick={() => {
+                        setError("");
+                        setShowForm(true);
+                      }}
                       className="flex items-center gap-2 rounded-full border border-[#DDD5C9] px-4 py-2 text-[10px] font-semibold uppercase tracking-[1.5px] transition hover:border-[#C9A96E] hover:text-[#B08C4C]"
                     >
                       <Pencil size={13} />
@@ -267,19 +411,36 @@ function CheckoutPage() {
                         />
                       </div>
 
+                      {/* ERROR */}
+
+                      {error && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                          {error}
+                        </div>
+                      )}
+
                       <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                         <button
                           type="submit"
-                          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#181818] text-xs font-semibold uppercase tracking-[2px] text-white transition hover:bg-[#C9A96E]"
+                          disabled={savingAddress}
+                          className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-xl text-xs font-semibold uppercase tracking-[2px] text-white transition ${
+                            savingAddress
+                              ? "cursor-not-allowed bg-[#999]"
+                              : "bg-[#181818] hover:bg-[#C9A96E]"
+                          }`}
                         >
                           <Check size={16} />
-                          Save Address
+
+                          {savingAddress ? "Saving..." : "Save Address"}
                         </button>
 
                         {address && (
                           <button
                             type="button"
-                            onClick={() => setShowForm(false)}
+                            onClick={() => {
+                              setError("");
+                              setShowForm(false);
+                            }}
                             className="h-12 rounded-xl border border-[#DDD5C9] px-7 text-xs font-semibold uppercase tracking-[1.5px] transition hover:border-[#C9A96E]"
                           >
                             Cancel
@@ -481,9 +642,16 @@ function CheckoutPage() {
                     </div>
                   )}
 
+                  {error && !showForm && (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+                      {error}
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     disabled={!address}
+                    onClick={handleProceedToPay}
                     className={`mt-5 flex h-[54px] w-full items-center justify-center gap-3 rounded-[14px] text-xs font-semibold uppercase tracking-[2px] text-white transition ${
                       address
                         ? "bg-[#181818] hover:bg-[#C9A96E]"
@@ -585,7 +753,7 @@ function OrderProduct({ product }) {
 
   return (
     <div className="flex gap-4">
-      {/* PRODUCT IMAGE */}
+      {/* IMAGE */}
 
       <div className="relative flex h-[86px] w-[72px] flex-shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-[#F6F2EA]">
         {product.image && !imageError ? (
