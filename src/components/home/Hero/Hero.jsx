@@ -10,9 +10,9 @@ function Hero() {
           grid
           max-w-7xl
           items-center
-          gap-4
+          gap-8
           px-5
-          py-8
+          py-10
           sm:gap-10
           sm:px-8
           sm:py-14
@@ -23,17 +23,9 @@ function Hero() {
           lg:py-20
         "
       >
-        {/* HERO CONTENT */}
+        <HeroContent />
 
-        <div className="min-w-0">
-          <HeroContent />
-        </div>
-
-        {/* HERO IMAGE */}
-
-        <div className="min-w-0">
-          <HeroImage />
-        </div>
+        <HeroImage />
       </div>
     </section>
   );
