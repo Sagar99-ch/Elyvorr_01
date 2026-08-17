@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react";
 import { heroData } from "./heroData";
 
 function HeroContent() {
@@ -8,7 +7,6 @@ function HeroContent() {
         relative
         z-10
         max-w-xl
-
         lg:max-w-2xl
       "
     >
@@ -40,10 +38,10 @@ function HeroContent() {
       <h1
         className="
           mt-6
-          max-w-[360px]
+          max-w-[370px]
           whitespace-pre-line
           font-serif
-          text-[44px]
+          text-[43px]
           font-semibold
           leading-[0.98]
           text-[#181818]
@@ -63,10 +61,9 @@ function HeroContent() {
 
       <p
         className="
-          mt-6
+          mt-5
           max-w-[350px]
-          text-[15px]
-          font-medium
+          text-[14px]
           leading-7
           text-[#666]
 
@@ -80,79 +77,60 @@ function HeroContent() {
         {heroData.description}
       </p>
 
-      {/* ================= BUTTONS ================= */}
+      {/* =====================================================
+          MOBILE TRUST INFORMATION
+      ===================================================== */}
 
       <div
         className="
           mt-7
-          flex
-          flex-col
-          gap-3
+          grid
+          grid-cols-3
+          border-y
+          border-[#E5DED2]
+          py-4
 
-          sm:mt-10
-          sm:flex-row
-          sm:flex-wrap
+          sm:mt-8
+          sm:py-5
+
+          lg:hidden
         "
       >
-        {/* PRIMARY */}
+        {/* 50ML */}
 
-        <button
-          type="button"
-          className="
-            flex
-            w-full
-            items-center
-            justify-center
-            gap-3
-            rounded-full
-            bg-[#181818]
-            px-7
-            py-4
-            text-xs
-            font-semibold
-            uppercase
-            tracking-[2px]
-            text-white
-            transition
-            hover:bg-[#C9A96E]
+        <div className="text-center">
+          <p className="font-serif text-lg font-semibold text-[#181818]">
+            50ml
+          </p>
 
-            sm:w-fit
-            sm:px-8
-            sm:text-sm
-          "
-        >
-          {heroData.primaryButton}
+          <p className="mt-1 text-[8px] font-semibold uppercase tracking-[1.2px] text-[#999]">
+            Eau de Parfum
+          </p>
+        </div>
 
-          <ArrowRight size={17} />
-        </button>
+        {/* LONG LASTING */}
 
-        {/* SECONDARY */}
+        <div className="border-x border-[#E5DED2] text-center">
+          <p className="font-serif text-lg font-semibold text-[#181818]">
+            Long
+          </p>
 
-        <button
-          type="button"
-          className="
-            w-full
-            rounded-full
-            border
-            border-[#D8D2C8]
-            px-7
-            py-4
-            text-xs
-            font-semibold
-            uppercase
-            tracking-[2px]
-            text-[#181818]
-            transition
-            hover:border-[#C9A96E]
-            hover:text-[#C9A96E]
+          <p className="mt-1 text-[8px] font-semibold uppercase tracking-[1.2px] text-[#999]">
+            Lasting
+          </p>
+        </div>
 
-            sm:w-fit
-            sm:px-8
-            sm:text-sm
-          "
-        >
-          {heroData.secondaryButton}
-        </button>
+        {/* PREMIUM */}
+
+        <div className="text-center">
+          <p className="font-serif text-lg font-semibold text-[#181818]">
+            Premium
+          </p>
+
+          <p className="mt-1 text-[8px] font-semibold uppercase tracking-[1.2px] text-[#999]">
+            Fragrance
+          </p>
+        </div>
       </div>
     </div>
   );

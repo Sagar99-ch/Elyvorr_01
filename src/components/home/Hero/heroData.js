@@ -5,8 +5,4 @@ export const heroData = {
 
   description:
     "Discover premium perfumes created with timeless ingredients and elegant craftsmanship. Every fragrance tells a story.",
-
-  primaryButton: "Shop Collection",
-
-  secondaryButton: "Our Story",
 };
