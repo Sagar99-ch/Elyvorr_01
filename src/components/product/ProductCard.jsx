@@ -1,6 +1,9 @@
-import { Heart, ShoppingBag } from "lucide-react";
+import { Heart, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-function ProductCard({ product, onAddToBag }) {
+function ProductCard({ product }) {
+  const navigate = useNavigate();
+
   const discount =
     product.oldPrice && product.oldPrice > product.price
       ? Math.round(
@@ -8,11 +11,48 @@ function ProductCard({ product, onAddToBag }) {
         )
       : 0;
 
-  return (
-    <article className="group overflow-hidden rounded-[24px] border border-[#E7E1D7] bg-white transition duration-500 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(30,25,20,0.08)]">
-      {/* ================= PRODUCT IMAGE ================= */}
+  // =====================================================
+  // OPEN PRODUCT DETAILS
+  // =====================================================
 
-      <div className="relative flex h-[380px] items-center justify-center overflow-hidden bg-[#F8F5F0]">
+  const handleProductClick = () => {
+    navigate(`/product/${product.id}`);
+  };
+
+  return (
+    <article
+      className="
+        group
+        overflow-hidden
+        rounded-[24px]
+        border
+        border-[#E7E1D7]
+        bg-white
+        transition
+        duration-500
+        hover:-translate-y-1
+        hover:shadow-[0_20px_50px_rgba(30,25,20,0.08)]
+      "
+    >
+      {/* =================================================
+          PRODUCT IMAGE
+      ================================================= */}
+
+      <button
+        type="button"
+        onClick={handleProductClick}
+        className="
+          relative
+          block
+          h-[380px]
+          w-full
+          overflow-hidden
+          bg-[#F8F5F0]
+          text-left
+          outline-none
+        "
+        aria-label={`View ${product.name} details`}
+      >
         {/* Badge */}
 
         {product.badge && (
@@ -23,13 +63,41 @@ function ProductCard({ product, onAddToBag }) {
 
         {/* Wishlist */}
 
-        <button
-          type="button"
-          className="absolute right-5 top-5 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#555] shadow-sm transition hover:bg-[#181818] hover:text-white"
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
+          className="
+            absolute
+            right-5
+            top-5
+            z-20
+            flex
+            h-11
+            w-11
+            items-center
+            justify-center
+            rounded-full
+            bg-white
+            text-[#555]
+            shadow-sm
+            transition
+            hover:bg-[#181818]
+            hover:text-white
+          "
           aria-label={`Add ${product.name} to wishlist`}
         >
           <Heart size={18} />
-        </button>
+        </span>
 
         {/* Product Image */}
 
@@ -37,7 +105,14 @@ function ProductCard({ product, onAddToBag }) {
           <img
             src={product.image}
             alt={product.name}
-            className="h-[290px] w-auto object-contain transition-transform duration-700 group-hover:scale-105"
+            className="
+              h-[290px]
+              w-auto
+              object-contain
+              transition-transform
+              duration-700
+              group-hover:scale-105
+            "
           />
         ) : (
           <div className="flex flex-col items-center">
@@ -49,20 +124,19 @@ function ProductCard({ product, onAddToBag }) {
           </div>
         )}
 
-        {/* ================= HOVER ADD TO BAG ================= */}
+        {/* =================================================
+            VIEW DETAILS OVERLAY
+        ================================================= */}
 
-        <button
-          type="button"
-          onClick={() => onAddToBag?.(product)}
+        <div
           className="
             absolute
             bottom-5
             left-5
             right-5
-            z-20
             flex
             h-14
-            translate-y-20
+            translate-y-4
             items-center
             justify-center
             gap-3
@@ -79,23 +153,34 @@ function ProductCard({ product, onAddToBag }) {
             duration-500
             group-hover:translate-y-0
             group-hover:opacity-100
-            hover:bg-[#C9A96E]
           "
         >
-          <ShoppingBag size={18} />
-          Add to Bag
-        </button>
-      </div>
+          View Details
+          <ChevronRight size={18} />
+        </div>
+      </button>
 
-      {/* ================= PRODUCT DETAILS ================= */}
+      {/* =================================================
+          PRODUCT DETAILS
+      ================================================= */}
 
-      <div className="p-6">
+      <button
+        type="button"
+        onClick={handleProductClick}
+        className="
+          block
+          w-full
+          p-6
+          text-left
+          outline-none
+        "
+      >
         <h3 className="font-serif text-[28px] font-semibold text-[#181818]">
           {product.name}
         </h3>
 
         <p className="mt-1 text-sm text-[#777]">
-          Eau de Parfum • {product.volume}
+          Eau de Parfum • {product.volume || "50ml"}
         </p>
 
         {/* Rating */}
@@ -103,7 +188,7 @@ function ProductCard({ product, onAddToBag }) {
         <div className="mt-4 flex items-center gap-2">
           <div className="flex gap-0.5 text-[#C9A96E]">★★★★★</div>
 
-          <span className="text-xs text-[#888]">({product.reviews})</span>
+          <span className="text-xs text-[#888]">({product.reviews || 0})</span>
         </div>
 
         {/* Price */}
@@ -125,9 +210,17 @@ function ProductCard({ product, onAddToBag }) {
             </span>
           )}
         </div>
-      </div>
+
+        {/* Small Details CTA */}
+
+        <div className="mt-5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#999] transition group-hover:text-[#C9A96E]">
+          Explore fragrance
+          <ChevronRight size={14} />
+        </div>
+      </button>
     </article>
   );
 }
 
 export default ProductCard;
+  

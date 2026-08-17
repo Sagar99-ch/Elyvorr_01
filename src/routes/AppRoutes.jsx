@@ -24,6 +24,8 @@ import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminEnquiriesPage from "../pages/admin/AdminEnquiriesPage";
+
+import ProductDetailsPage from "../pages/ProductDetailsPage";
 function AppRoutes() {
   return (
     <Routes>
@@ -86,7 +88,7 @@ function AppRoutes() {
       <Route path="/contact" element={<ContactPage />} />
 
       <Route path="/collection" element={<CollectionPage />} />
-
+      <Route path="/product/:id" element={<ProductDetailsPage />} />
       {/* =================================================
           BAG
       ================================================= */}

@@ -20,7 +20,69 @@ function CollectionPage() {
 
   const filters = ["ALL", "BESTSELLER", "NEW", "POPULAR"];
 
-  // ================= LOADING =================
+  // =====================================================
+  // FILTER + SEARCH + SORT
+  // IMPORTANT:
+  // This hook MUST run on every render.
+  // Do not put it after the loading return.
+  // =====================================================
+
+  const filteredProducts = useMemo(() => {
+    // Products are not loaded yet
+    if (!products) {
+      return [];
+    }
+
+    let result = [...products];
+
+    // ================= FILTER =================
+
+    if (activeFilter !== "ALL") {
+      result = result.filter(
+        (product) => product.badge?.toUpperCase() === activeFilter
+      );
+    }
+
+    // ================= SEARCH =================
+
+    if (search.trim()) {
+      const query = search.toLowerCase().trim();
+
+      result = result.filter((product) =>
+        `${product.name} ${product.volume}`.toLowerCase().includes(query)
+      );
+    }
+
+    // ================= SORT =================
+
+    if (sortBy === "price-low") {
+      result.sort((a, b) => a.price - b.price);
+    }
+
+    if (sortBy === "price-high") {
+      result.sort((a, b) => b.price - a.price);
+    }
+
+    if (sortBy === "name") {
+      result.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return result;
+  }, [products, activeFilter, search, sortBy]);
+
+  // =====================================================
+  // CLEAR FILTERS
+  // =====================================================
+
+  const clearFilters = () => {
+    setActiveFilter("ALL");
+    setSearch("");
+    setSortBy("featured");
+  };
+
+  // =====================================================
+  // LOADING
+  // =====================================================
 
   if (products === undefined) {
     return (
@@ -55,54 +117,15 @@ function CollectionPage() {
     );
   }
 
-  // ================= FILTER + SEARCH + SORT =================
-
-  const filteredProducts = useMemo(() => {
-    let result = [...products];
-
-    // Filter
-    if (activeFilter !== "ALL") {
-      result = result.filter(
-        (product) => product.badge?.toUpperCase() === activeFilter
-      );
-    }
-
-    // Search
-    if (search.trim()) {
-      const query = search.toLowerCase().trim();
-
-      result = result.filter((product) =>
-        `${product.name} ${product.volume}`.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort
-    if (sortBy === "price-low") {
-      result.sort((a, b) => a.price - b.price);
-    }
-
-    if (sortBy === "price-high") {
-      result.sort((a, b) => b.price - a.price);
-    }
-
-    if (sortBy === "name") {
-      result.sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    return result;
-  }, [products, activeFilter, search, sortBy]);
-
-  // ================= CLEAR FILTERS =================
-
-  const clearFilters = () => {
-    setActiveFilter("ALL");
-    setSearch("");
-    setSortBy("featured");
-  };
+  // =====================================================
+  // MAIN UI
+  // =====================================================
 
   return (
     <main className="min-h-screen bg-[#FAF8F4] text-[#181818]">
-      {/* ================= HERO ================= */}
+      {/* =================================================
+          HERO
+      ================================================= */}
 
       <section className="border-b border-[#E7E1D7] px-5 pb-16 pt-16 sm:px-8 lg:px-12 lg:pb-20 lg:pt-24">
         <div className="mx-auto max-w-7xl">
@@ -131,11 +154,15 @@ function CollectionPage() {
         </div>
       </section>
 
-      {/* ================= COLLECTION CONTENT ================= */}
+      {/* =================================================
+          COLLECTION CONTENT
+      ================================================= */}
 
       <section className="px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
         <div className="mx-auto max-w-7xl">
-          {/* ================= TOOLBAR ================= */}
+          {/* =================================================
+              TOOLBAR
+          ================================================= */}
 
           <div className="flex flex-col gap-5 border-b border-[#E7E1D7] pb-7 lg:flex-row lg:items-center lg:justify-between">
             {/* FILTERS */}
@@ -208,7 +235,9 @@ function CollectionPage() {
             </div>
           </div>
 
-          {/* ================= RESULT INFO ================= */}
+          {/* =================================================
+              RESULT INFO
+          ================================================= */}
 
           <div className="flex items-center justify-between py-7">
             <p className="text-sm text-[#777]">
@@ -230,7 +259,9 @@ function CollectionPage() {
             )}
           </div>
 
-          {/* ================= PRODUCTS ================= */}
+          {/* =================================================
+              PRODUCTS
+          ================================================= */}
 
           {filteredProducts.length > 0 ? (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -246,7 +277,9 @@ function CollectionPage() {
               ))}
             </div>
           ) : (
-            /* ================= NO RESULTS ================= */
+            /* =================================================
+               NO RESULTS
+            ================================================= */
 
             <div className="flex min-h-[400px] flex-col items-center justify-center rounded-[28px] border border-[#E7E1D7] bg-white px-6 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F5F0E7]">
@@ -274,7 +307,9 @@ function CollectionPage() {
         </div>
       </section>
 
-      {/* ================= BOTTOM BRAND MESSAGE ================= */}
+      {/* =================================================
+          BOTTOM BRAND MESSAGE
+      ================================================= */}
 
       <section className="border-t border-[#E7E1D7] bg-[#181818] px-5 py-20 text-white sm:px-8 lg:px-12 lg:py-24">
         <div className="mx-auto max-w-4xl text-center">

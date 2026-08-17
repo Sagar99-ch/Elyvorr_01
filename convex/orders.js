@@ -345,3 +345,27 @@ export const updateOrderStatus = mutation({
     };
   },
 });
+// =====================================================
+// ADMIN — DELETE ORDER
+// =====================================================
+
+export const deleteOrder = mutation({
+  args: {
+    orderId: v.id("orders"),
+  },
+
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+
+    if (!order) {
+      throw new Error("Order not found.");
+    }
+
+    await ctx.db.delete(args.orderId);
+
+    return {
+      success: true,
+      message: "Order deleted successfully.",
+    };
+  },
+});
