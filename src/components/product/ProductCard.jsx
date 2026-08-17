@@ -1,7 +1,7 @@
-import { Heart, ShoppingBag, ChevronRight } from "lucide-react";
+import { Heart, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-function ProductCard({ product, onAddToBag }) {
+function ProductCard({ product }) {
   const navigate = useNavigate();
 
   const discount =
@@ -12,24 +12,11 @@ function ProductCard({ product, onAddToBag }) {
       : 0;
 
   // =====================================================
-  // PRODUCT DETAILS
+  // OPEN PRODUCT DETAILS
   // =====================================================
 
   const handleProductClick = () => {
-    navigate(`/product/${product.id}`);
-  };
-
-  // =====================================================
-  // ADD TO BAG
-  // =====================================================
-
-  const handleAddToBag = (event) => {
-    event.stopPropagation();
-
-    onAddToBag?.({
-      ...product,
-      volume: "50ml",
-    });
+    navigate(`/product/${product.id || product._id}`);
   };
 
   return (
@@ -37,7 +24,7 @@ function ProductCard({ product, onAddToBag }) {
       className="
         group
         overflow-hidden
-        rounded-[18px]
+        rounded-[24px]
         border
         border-[#E7E1D7]
         bg-white
@@ -45,11 +32,10 @@ function ProductCard({ product, onAddToBag }) {
         duration-500
         hover:-translate-y-1
         hover:shadow-[0_20px_50px_rgba(30,25,20,0.08)]
-        sm:rounded-[24px]
       "
     >
       {/* =================================================
-          IMAGE
+          PRODUCT IMAGE
       ================================================= */}
 
       <button
@@ -58,14 +44,12 @@ function ProductCard({ product, onAddToBag }) {
         className="
           relative
           block
-          aspect-[0.86]
+          h-[380px]
           w-full
           overflow-hidden
           bg-[#F8F5F0]
           text-left
           outline-none
-          sm:h-[380px]
-          sm:aspect-auto
         "
         aria-label={`View ${product.name} details`}
       >
@@ -75,24 +59,18 @@ function ProductCard({ product, onAddToBag }) {
           <span
             className="
               absolute
-              left-2.5
-              top-2.5
+              left-5
+              top-5
               z-10
               rounded-full
               bg-[#181818]
-              px-2.5
-              py-1.5
-              text-[7px]
+              px-4
+              py-2
+              text-[10px]
               font-semibold
               uppercase
-              tracking-[1px]
+              tracking-[2px]
               text-white
-              sm:left-5
-              sm:top-5
-              sm:px-4
-              sm:py-2
-              sm:text-[10px]
-              sm:tracking-[2px]
             "
           >
             {product.badge}
@@ -116,28 +94,25 @@ function ProductCard({ product, onAddToBag }) {
           }}
           className="
             absolute
-            right-2.5
-            top-2.5
+            right-5
+            top-5
             z-20
             flex
-            h-8
-            w-8
+            h-11
+            w-11
             items-center
             justify-center
             rounded-full
             bg-white
             text-[#555]
             shadow-sm
-            sm:right-5
-            sm:top-5
-            sm:h-11
-            sm:w-11
+            transition
             hover:bg-[#181818]
             hover:text-white
           "
           aria-label={`Add ${product.name} to wishlist`}
         >
-          <Heart size={15} className="sm:h-[18px] sm:w-[18px]" />
+          <Heart size={18} />
         </span>
 
         {/* PRODUCT IMAGE */}
@@ -149,22 +124,17 @@ function ProductCard({ product, onAddToBag }) {
             className="
               h-full
               w-full
-              object-contain
-              p-4
+              object-cover
               transition-transform
               duration-700
-              group-hover:scale-105
-              sm:h-[290px]
-              sm:w-auto
-              sm:p-0
-              sm:object-contain
+              group-hover:scale-[1.03]
             "
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center">
-            <div className="h-32 w-16 rounded-2xl bg-[#C9A96E] shadow-lg sm:h-56 sm:w-28" />
+          <div className="flex h-full w-full flex-col items-center justify-center">
+            <div className="h-56 w-28 rounded-2xl bg-[#C9A96E] shadow-lg" />
 
-            <span className="mt-3 text-[7px] font-semibold tracking-[2px] text-[#555] sm:mt-5 sm:text-[11px] sm:tracking-[4px]">
+            <span className="mt-5 text-[11px] font-semibold tracking-[4px] text-[#555]">
               ELYVORR
             </span>
           </div>
@@ -199,7 +169,7 @@ function ProductCard({ product, onAddToBag }) {
             duration-500
             group-hover:translate-y-0
             group-hover:opacity-100
-            sm:flex
+            lg:flex
           "
         >
           View Details
@@ -208,116 +178,85 @@ function ProductCard({ product, onAddToBag }) {
       </button>
 
       {/* =================================================
-          PRODUCT INFO
+          PRODUCT INFORMATION
       ================================================= */}
 
-      <div className="p-3 sm:p-6">
+      <button
+        type="button"
+        onClick={handleProductClick}
+        className="
+          block
+          w-full
+          p-6
+          text-left
+          outline-none
+        "
+      >
         {/* NAME */}
 
-        <button
-          type="button"
-          onClick={handleProductClick}
+        <h3
           className="
-            block
-            w-full
-            text-left
-            outline-none
+            font-serif
+            text-[26px]
+            font-semibold
+            text-[#181818]
+            sm:text-[28px]
           "
         >
-          <h3
-            className="
-              truncate
-              font-serif
-              text-[17px]
-              font-semibold
-              text-[#181818]
-              sm:text-[28px]
-            "
-          >
-            {product.name}
-          </h3>
-        </button>
+          {product.name}
+        </h3>
 
         {/* VOLUME */}
 
-        <p className="mt-1 text-[9px] text-[#777] sm:text-sm">
-          Eau de Parfum • 50ml
+        <p className="mt-1 text-sm text-[#777]">
+          Eau de Parfum • {product.volume || "50ml"}
         </p>
 
         {/* RATING */}
 
-        <div className="mt-2.5 flex items-center gap-1.5 sm:mt-4 sm:gap-2">
-          <div className="flex gap-[1px] text-[11px] text-[#C9A96E] sm:text-base">
-            ★★★★★
-          </div>
+        <div className="mt-4 flex items-center gap-2">
+          <div className="flex gap-0.5 text-[#C9A96E]">★★★★★</div>
 
-          <span className="text-[8px] text-[#888] sm:text-xs">
-            ({product.reviews || 0})
-          </span>
+          <span className="text-xs text-[#888]">({product.reviews || 0})</span>
         </div>
 
         {/* PRICE */}
 
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:mt-5 sm:items-end sm:gap-3">
-          <span className="text-[18px] font-bold text-[#181818] sm:text-[27px]">
+        <div className="mt-5 flex flex-wrap items-end gap-3">
+          <span className="text-[27px] font-bold text-[#181818]">
             ₹{product.price.toLocaleString("en-IN")}
           </span>
 
           {product.oldPrice && (
-            <span className="text-[9px] text-[#999] line-through sm:mb-1 sm:text-sm">
+            <span className="mb-1 text-sm text-[#999] line-through">
               ₹{product.oldPrice.toLocaleString("en-IN")}
             </span>
           )}
 
           {discount > 0 && (
-            <span className="rounded-full bg-[#EAF8EC] px-1.5 py-1 text-[7px] font-semibold text-[#2F8F46] sm:mb-1 sm:px-2 sm:text-[10px]">
+            <span
+              className="
+                mb-1
+                rounded-full
+                bg-[#EAF8EC]
+                px-2
+                py-1
+                text-[10px]
+                font-semibold
+                text-[#2F8F46]
+              "
+            >
               {discount}% OFF
             </span>
           )}
         </div>
 
-        {/* =================================================
-            MOBILE ADD TO BAG
-        ================================================= */}
+        {/* DETAILS CTA */}
 
-        <button
-          type="button"
-          onClick={handleAddToBag}
-          className="
-            mt-3
-            flex
-            h-9
-            w-full
-            items-center
-            justify-center
-            gap-1.5
-            rounded-lg
-            bg-[#181818]
-            text-[8px]
-            font-semibold
-            uppercase
-            tracking-[1px]
-            text-white
-            transition
-            hover:bg-[#C9A96E]
-            sm:mt-5
-            sm:hidden
-          "
-        >
-          <ShoppingBag size={13} />
-          Add to Bag
-        </button>
-
-        {/* =================================================
-            DESKTOP CTA
-        ================================================= */}
-
-        <button
-          type="button"
-          onClick={handleProductClick}
+        <div
           className="
             mt-5
-            hidden
+            flex
             items-center
             gap-2
             text-[10px]
@@ -326,14 +265,13 @@ function ProductCard({ product, onAddToBag }) {
             tracking-[1.8px]
             text-[#999]
             transition
-            hover:text-[#C9A96E]
-            sm:flex
+            group-hover:text-[#C9A96E]
           "
         >
           Explore fragrance
           <ChevronRight size={14} />
-        </button>
-      </div>
+        </div>
+      </button>
     </article>
   );
 }
