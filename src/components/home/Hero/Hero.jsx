@@ -7,25 +7,33 @@ function Hero() {
       <div
         className="
           mx-auto
-          grid
           max-w-7xl
-          items-center
-          gap-8
           px-5
           py-10
-          sm:gap-10
+
           sm:px-8
           sm:py-14
+
+          lg:grid
           lg:min-h-[90vh]
           lg:grid-cols-2
+          lg:items-center
           lg:gap-16
           lg:px-6
           lg:py-20
         "
       >
-        <HeroContent />
+        {/* ================= MOBILE + DESKTOP CONTENT ================= */}
 
-        <HeroImage />
+        <div className="min-w-0">
+          <HeroContent />
+        </div>
+
+        {/* ================= HERO IMAGE ================= */}
+
+        <div className="min-w-0">
+          <HeroImage />
+        </div>
       </div>
     </section>
   );
