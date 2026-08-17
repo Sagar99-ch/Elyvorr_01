@@ -4,127 +4,172 @@ import { NavLink } from "react-router-dom";
 
 function Footer() {
   return (
-    <footer className="mt-24 bg-[#181818] text-white">
-      <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 md:grid-cols-2 lg:grid-cols-4">
-        {/* Brand */}
-        <div>
-          <h2 className="font-serif text-4xl font-semibold tracking-[4px] text-[#C9A96E]">
-            ELYVORR
-          </h2>
+    <footer className="mt-12 bg-[#181818] text-white sm:mt-24">
+      <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-20 lg:px-6">
+        {/* =================================================
+            BRAND
+        ================================================= */}
 
-          <p className="mt-6 max-w-xs text-sm leading-7 text-gray-400">
-            Crafted for those who appreciate timeless luxury, elegance and
-            unforgettable fragrances.
-          </p>
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+          <div className="lg:col-span-1">
+            <h2 className="font-serif text-3xl font-semibold tracking-[3px] text-[#C9A96E] sm:text-4xl sm:tracking-[4px]">
+              ELYVORR
+            </h2>
 
-          <div className="mt-8 flex gap-4">
-            <button className="rounded-full border border-[#444] p-3 transition hover:border-[#C9A96E] hover:text-[#C9A96E]">
-              <FaFacebookF size={16} />
-            </button>
+            <p className="mt-4 max-w-xs text-xs leading-6 text-gray-400 sm:mt-6 sm:text-sm sm:leading-7">
+              Crafted for those who appreciate timeless luxury, elegance and
+              unforgettable fragrances.
+            </p>
 
-            <button className="rounded-full border border-[#444] p-3 transition hover:border-[#C9A96E] hover:text-[#C9A96E]">
-              <FaInstagram size={18} />
-            </button>
+            {/* SOCIAL */}
 
-            <button className="rounded-full border border-[#444] p-3 transition hover:border-[#C9A96E] hover:text-[#C9A96E]">
-              <FaLinkedinIn size={18} />
-            </button>
+            <div className="mt-6 flex gap-3 sm:mt-8 sm:gap-4">
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
+              >
+                <FaFacebookF size={14} />
+              </button>
+
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
+              >
+                <FaInstagram size={16} />
+              </button>
+
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
+              >
+                <FaLinkedinIn size={16} />
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Shop */}
-        <div>
-          <h3 className="mb-6 text-lg font-semibold">Shop</h3>
+          {/* =================================================
+              SHOP
+          ================================================= */}
 
-          <div className="flex flex-col gap-4 text-sm text-gray-400">
-            <NavLink to="/shop" className="transition hover:text-[#C9A96E]">
-              All Perfumes
-            </NavLink>
+          <div>
+            <h3 className="mb-4 text-sm font-semibold sm:mb-6 sm:text-lg">
+              Shop
+            </h3>
 
-            <NavLink
-              to="/collection"
-              className="transition hover:text-[#C9A96E]"
-            >
-              Collections
-            </NavLink>
+            <div className="flex flex-col gap-3 text-xs text-gray-400 sm:gap-4 sm:text-sm">
+              <NavLink to="/shop" className="transition hover:text-[#C9A96E]">
+                All Perfumes
+              </NavLink>
 
-            <NavLink
-              to="/new-arrivals"
-              className="transition hover:text-[#C9A96E]"
-            >
-              New Arrivals
-            </NavLink>
+              <NavLink
+                to="/collection"
+                className="transition hover:text-[#C9A96E]"
+              >
+                Collections
+              </NavLink>
 
-            <NavLink
-              to="/best-sellers"
-              className="transition hover:text-[#C9A96E]"
-            >
-              Best Sellers
-            </NavLink>
+              <NavLink
+                to="/new-arrivals"
+                className="transition hover:text-[#C9A96E]"
+              >
+                New Arrivals
+              </NavLink>
+
+              <NavLink
+                to="/best-sellers"
+                className="transition hover:text-[#C9A96E]"
+              >
+                Best Sellers
+              </NavLink>
+            </div>
           </div>
-        </div>
 
-        {/* Company */}
-        <div>
-          <h3 className="mb-6 text-lg font-semibold">Company</h3>
+          {/* =================================================
+              COMPANY
+          ================================================= */}
 
-          <div className="flex flex-col gap-4 text-sm text-gray-400">
-            <NavLink to="/about" className="transition hover:text-[#C9A96E]">
-              About Us
-            </NavLink>
+          <div>
+            <h3 className="mb-4 text-sm font-semibold sm:mb-6 sm:text-lg">
+              Company
+            </h3>
 
-            <NavLink to="/contact" className="transition hover:text-[#C9A96E]">
+            <div className="flex flex-col gap-3 text-xs text-gray-400 sm:gap-4 sm:text-sm">
+              <NavLink to="/about" className="transition hover:text-[#C9A96E]">
+                About Us
+              </NavLink>
+
+              <NavLink
+                to="/contact"
+                className="transition hover:text-[#C9A96E]"
+              >
+                Contact
+              </NavLink>
+
+              <NavLink
+                to="/privacy-policy"
+                className="transition hover:text-[#C9A96E]"
+              >
+                Privacy Policy
+              </NavLink>
+
+              <NavLink to="/terms" className="transition hover:text-[#C9A96E]">
+                Terms & Conditions
+              </NavLink>
+            </div>
+          </div>
+
+          {/* =================================================
+              CONTACT
+          ================================================= */}
+
+          <div>
+            <h3 className="mb-4 text-sm font-semibold sm:mb-6 sm:text-lg">
               Contact
-            </NavLink>
+            </h3>
 
-            <NavLink
-              to="/privacy-policy"
-              className="transition hover:text-[#C9A96E]"
-            >
-              Privacy Policy
-            </NavLink>
+            <div className="space-y-4 text-xs text-gray-400 sm:space-y-5 sm:text-sm">
+              <div className="flex gap-3">
+                <MapPin
+                  size={17}
+                  className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
+                />
 
-            <NavLink to="/terms" className="transition hover:text-[#C9A96E]">
-              Terms & Conditions
-            </NavLink>
-          </div>
-        </div>
+                <span>Indore, Madhya Pradesh</span>
+              </div>
 
-        {/* Contact */}
-        <div>
-          <h3 className="mb-6 text-lg font-semibold">Contact</h3>
+              <div className="flex gap-3">
+                <Phone
+                  size={17}
+                  className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
+                />
 
-          <div className="space-y-5 text-sm text-gray-400">
-            <div className="flex gap-3">
-              <MapPin
-                size={18}
-                className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
-              />
-              <span>Indore, Madhya Pradesh</span>
-            </div>
+                <span>+91 98765 43210</span>
+              </div>
 
-            <div className="flex gap-3">
-              <Phone
-                size={18}
-                className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
-              />
-              <span>+91 98765 43210</span>
-            </div>
+              <div className="flex gap-3">
+                <Mail
+                  size={17}
+                  className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
+                />
 
-            <div className="flex gap-3">
-              <Mail size={18} className="mt-0.5 flex-shrink-0 text-[#C9A96E]" />
-              <span>support@elyvorr.com</span>
+                <span className="break-all">support@elyvorr.com</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom */}
+      {/* =================================================
+          BOTTOM
+      ================================================= */}
+
       <div className="border-t border-[#2D2D2D]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-6 text-sm text-gray-500 md:flex-row">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-5 py-5 text-center text-[10px] text-gray-500 sm:flex-row sm:px-6 sm:py-6 sm:text-sm">
           <p>© {new Date().getFullYear()} ELYVORR. All rights reserved.</p>
 
-          <p>Designed with love for luxury fragrance lovers.</p>
+          <p className="hidden sm:block">
+            Designed with love for luxury fragrance lovers.
+          </p>
         </div>
       </div>
     </footer>

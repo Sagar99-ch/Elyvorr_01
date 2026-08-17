@@ -1,33 +1,21 @@
-import { ArrowRight } from "lucide-react";
-import { heroData } from "./heroData";
-
-function HeroContent() {
+function HeroImage() {
   return (
-    <div className="max-w-xl">
-      <span className="inline-block rounded-full bg-[#F4EFE5] px-4 py-2 text-xs font-semibold uppercase tracking-[3px] text-[#C9A96E]">
-        {heroData.subtitle}
-      </span>
+    <div className="relative flex items-center justify-center">
+      <div className="absolute h-[420px] w-[420px] rounded-full bg-[#F3EBDD]" />
 
-      <h1 className="mt-8 whitespace-pre-line font-serif text-6xl font-semibold leading-[1.05] text-[#181818] lg:text-7xl">
-        {heroData.title}
-      </h1>
+      <div className="relative flex h-[500px] w-[280px] items-center justify-center rounded-[40px] bg-white shadow-[0_30px_80px_rgba(0,0,0,.08)]">
+        <div className="text-center">
+          <div className="mx-auto h-60 w-24 rounded-2xl bg-[#C9A96E]" />
 
-      <p className="mt-8 text-lg leading-8 text-[#666]">
-        {heroData.description}
-      </p>
+          <h3 className="mt-8 font-serif text-3xl font-semibold">ELYVORR</h3>
 
-      <div className="mt-10 flex flex-wrap gap-4">
-        <button className="flex items-center gap-3 rounded-full bg-[#181818] px-8 py-4 text-sm font-semibold uppercase tracking-[2px] text-white transition hover:bg-[#C9A96E]">
-          {heroData.primaryButton}
-          <ArrowRight size={18} />
-        </button>
-
-        <button className="rounded-full border border-[#D8D2C8] px-8 py-4 text-sm font-semibold uppercase tracking-[2px] transition hover:border-[#C9A96E] hover:text-[#C9A96E]">
-          {heroData.secondaryButton}
-        </button>
+          <p className="mt-2 text-sm tracking-[4px] text-[#666] uppercase">
+            Eau de Parfum
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-export default HeroContent;
+export default HeroImage;

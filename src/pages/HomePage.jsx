@@ -15,22 +15,16 @@ function HomePage() {
           block: "start",
         });
       }
-    }, 4000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <Layout>
-      {/* ================= HERO ================= */}
-
       <Hero />
 
-      {/* ================= FEATURED PRODUCTS ================= */}
-
-      <div id="featured-products">
-        <FeaturedProducts />
-      </div>
+      <FeaturedProducts />
     </Layout>
   );
 }

@@ -14,23 +14,55 @@ function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#181818]">
-      {/* Announcement */}
+      {/* =====================================================
+          HEADER AREA
 
-      <AnnouncementBar />
+          DESKTOP:
+          Announcement → Navbar
 
-      {/* Navbar */}
+          MOBILE:
+          Navbar → Announcement
+      ===================================================== */}
 
-      <Navbar bagCount={totalItems} onOpenBag={() => setOpenBag(true)} />
+      <div className="flex flex-col">
+        {/* =================================================
+            ANNOUNCEMENT BAR
 
-      {/* Main */}
+            Mobile  → second
+            Desktop → first
+        ================================================= */}
+
+        <div className="order-2 lg:order-1">
+          <AnnouncementBar />
+        </div>
+
+        {/* =================================================
+            NAVBAR
+
+            Mobile  → first
+            Desktop → second
+        ================================================= */}
+
+        <div className="order-1 lg:order-2">
+          <Navbar bagCount={totalItems} onOpenBag={() => setOpenBag(true)} />
+        </div>
+      </div>
+
+      {/* =====================================================
+          MAIN
+      ===================================================== */}
 
       <main>{children}</main>
 
-      {/* Footer */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
       <Footer />
 
-      {/* Bag Drawer */}
+      {/* =====================================================
+          BAG DRAWER
+      ===================================================== */}
 
       <BagDrawer isOpen={openBag} onClose={() => setOpenBag(false)} />
     </div>

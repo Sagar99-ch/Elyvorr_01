@@ -4,10 +4,36 @@ import HeroImage from "./HeroImage";
 function Hero() {
   return (
     <section className="overflow-hidden bg-[#FAF8F4]">
-      <div className="mx-auto grid min-h-[90vh] max-w-7xl items-center gap-16 px-6 py-20 lg:grid-cols-2">
-        <HeroContent />
+      <div
+        className="
+          mx-auto
+          grid
+          max-w-7xl
+          items-center
+          gap-4
+          px-5
+          py-8
+          sm:gap-10
+          sm:px-8
+          sm:py-14
+          lg:min-h-[90vh]
+          lg:grid-cols-2
+          lg:gap-16
+          lg:px-6
+          lg:py-20
+        "
+      >
+        {/* HERO CONTENT */}
 
-        <HeroImage />
+        <div className="min-w-0">
+          <HeroContent />
+        </div>
+
+        {/* HERO IMAGE */}
+
+        <div className="min-w-0">
+          <HeroImage />
+        </div>
       </div>
     </section>
   );

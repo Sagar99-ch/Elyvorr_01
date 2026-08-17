@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, ShoppingBag, X, Search } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -26,10 +26,8 @@ function Navbar({ bagCount = 0 }) {
 
     logoClickCount.current += 1;
 
-    // Reset previous timer
     clearTimeout(logoClickTimer.current);
 
-    // 5 clicks completed
     if (logoClickCount.current === 5) {
       logoClickCount.current = 0;
 
@@ -38,10 +36,17 @@ function Navbar({ bagCount = 0 }) {
       return;
     }
 
-    // Reset counter if user waits too long
     logoClickTimer.current = setTimeout(() => {
       logoClickCount.current = 0;
     }, 1500);
+  };
+
+  // =====================================================
+  // SEARCH
+  // =====================================================
+
+  const handleSearch = () => {
+    navigate("/collection");
   };
 
   return (
@@ -51,10 +56,12 @@ function Navbar({ bagCount = 0 }) {
       ====================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-[#ECE7DF] bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6">
-          {/* =================================================
-              LOGO
-          ================================================== */}
+        {/* =================================================
+            DESKTOP
+        ================================================= */}
+
+        <div className="mx-auto hidden h-24 max-w-7xl items-center justify-between px-6 lg:flex">
+          {/* LOGO */}
 
           <button
             type="button"
@@ -65,11 +72,9 @@ function Navbar({ bagCount = 0 }) {
             ELYVORR
           </button>
 
-          {/* =================================================
-              DESKTOP NAV
-          ================================================== */}
+          {/* DESKTOP NAV */}
 
-          <nav className="hidden items-center gap-10 lg:flex">
+          <nav className="flex items-center gap-10">
             {navItems.map((item) => (
               <NavLink
                 key={item.name}
@@ -87,13 +92,9 @@ function Navbar({ bagCount = 0 }) {
             ))}
           </nav>
 
-          {/* =================================================
-              RIGHT ICONS
-          ================================================== */}
+          {/* DESKTOP BAG */}
 
-          <div className="hidden items-center gap-2 lg:flex">
-            {/* SHOPPING BAG */}
-
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => navigate("/bag")}
@@ -109,19 +110,126 @@ function Navbar({ bagCount = 0 }) {
               )}
             </button>
           </div>
+        </div>
 
+        {/* =================================================
+            MOBILE
+        ================================================= */}
+
+        <div className="flex h-[68px] items-center justify-between px-4 lg:hidden">
           {/* =================================================
-              MOBILE MENU BUTTON
-          ================================================== */}
+              LEFT — MENU
+          ================================================= */}
 
           <button
             type="button"
             onClick={() => setOpenMenu(true)}
             aria-label="Open menu"
-            className="rounded-full p-2 transition hover:bg-[#F6F2EA] lg:hidden"
+            className="
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-full
+              transition
+              hover:bg-[#F6F2EA]
+            "
           >
-            <Menu size={26} />
+            <Menu size={24} strokeWidth={1.8} />
           </button>
+
+          {/* =================================================
+              CENTER — LOGO
+          ================================================= */}
+
+          <button
+            type="button"
+            onClick={handleLogoClick}
+            aria-label="ELYVORR"
+            className="
+              absolute
+              left-1/2
+              -translate-x-1/2
+              font-serif
+              text-[25px]
+              font-semibold
+              tracking-[4px]
+              text-[#181818]
+            "
+          >
+            ELYVORR
+          </button>
+
+          {/* =================================================
+              RIGHT — SEARCH + BAG
+          ================================================= */}
+
+          <div className="ml-auto flex items-center gap-1">
+            {/* SEARCH */}
+
+            <button
+              type="button"
+              onClick={handleSearch}
+              aria-label="Search perfumes"
+              className="
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-full
+                transition
+                hover:bg-[#F6F2EA]
+              "
+            >
+              <Search size={21} strokeWidth={1.8} />
+            </button>
+
+            {/* BAG */}
+
+            <button
+              type="button"
+              onClick={() => navigate("/bag")}
+              aria-label="Shopping bag"
+              className="
+                relative
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-full
+                transition
+                hover:bg-[#F6F2EA]
+              "
+            >
+              <ShoppingBag size={21} strokeWidth={1.8} />
+
+              {bagCount > 0 && (
+                <span
+                  className="
+                    absolute
+                    right-0
+                    top-0
+                    flex
+                    h-[17px]
+                    min-w-[17px]
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-[#181818]
+                    px-1
+                    text-[8px]
+                    font-bold
+                    text-white
+                  "
+                >
+                  {bagCount > 99 ? "99+" : bagCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -150,22 +258,22 @@ function Navbar({ bagCount = 0 }) {
         ================================================== */}
 
         <div
-          className={`absolute right-0 top-0 h-full w-[320px] bg-white shadow-2xl transition-transform duration-300 ${
+          className={`absolute right-0 top-0 h-full w-[300px] bg-white shadow-2xl transition-transform duration-300 ${
             openMenu ? "translate-x-0" : "translate-x-full"
           }`}
         >
           {/* =================================================
-              MOBILE HEADER
-          ================================================== */}
+              MOBILE MENU HEADER
+          ================================================= */}
 
-          <div className="flex items-center justify-between border-b border-[#ECE7DF] p-6">
+          <div className="flex items-center justify-between border-b border-[#ECE7DF] p-5">
             {/* SECRET LOGO */}
 
             <button
               type="button"
               onClick={handleLogoClick}
               aria-label="ELYVORR"
-              className="font-serif text-2xl font-semibold transition hover:text-[#C9A96E]"
+              className="font-serif text-2xl font-semibold tracking-[3px] transition hover:text-[#C9A96E]"
             >
               ELYVORR
             </button>
@@ -176,7 +284,7 @@ function Navbar({ bagCount = 0 }) {
               type="button"
               onClick={() => setOpenMenu(false)}
               aria-label="Close menu"
-              className="rounded-full p-2 transition hover:bg-[#F6F2EA]"
+              className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[#F6F2EA]"
             >
               <X size={22} />
             </button>
@@ -184,9 +292,9 @@ function Navbar({ bagCount = 0 }) {
 
           {/* =================================================
               MOBILE NAVIGATION
-          ================================================== */}
+          ================================================= */}
 
-          <nav className="flex flex-col px-6">
+          <nav className="flex flex-col px-5">
             {navItems.map((item) => (
               <NavLink
                 key={item.name}
@@ -200,7 +308,7 @@ function Navbar({ bagCount = 0 }) {
 
             {/* =================================================
                 MOBILE BAG
-            ================================================== */}
+            ================================================= */}
 
             <button
               type="button"
