@@ -37,19 +37,14 @@ function AdminProductsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [showForm, setShowForm] = useState(false);
-
   const [editingProduct, setEditingProduct] = useState(null);
-
   const [viewingProduct, setViewingProduct] = useState(null);
-
   const [deleteProduct, setDeleteProduct] = useState(null);
 
   const [stockProduct, setStockProduct] = useState(null);
-
   const [stockValue, setStockValue] = useState("");
 
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
 
   // =====================================================
@@ -63,7 +58,12 @@ function AdminProductsPage() {
     oldPrice: "",
     reviews: "0",
     badge: "",
+
+    // Main + additional images
     image: "",
+    image2: "",
+    image3: "",
+
     stock: "",
     isActive: true,
   };
@@ -127,6 +127,10 @@ function AdminProductsPage() {
   const openEditForm = (product) => {
     setEditingProduct(product);
 
+    const additionalImages = Array.isArray(product.images)
+      ? product.images
+      : [];
+
     setForm({
       name: product.name ?? "",
       volume: product.volume ?? "",
@@ -134,7 +138,14 @@ function AdminProductsPage() {
       oldPrice: product.oldPrice !== undefined ? String(product.oldPrice) : "",
       reviews: String(product.reviews ?? 0),
       badge: product.badge ?? "",
+
+      // Main image
       image: product.image ?? "",
+
+      // Additional images
+      image2: additionalImages[0] ?? "",
+      image3: additionalImages[1] ?? "",
+
       stock: String(product.stock ?? 0),
       isActive: product.isActive ?? true,
     });
@@ -152,6 +163,10 @@ function AdminProductsPage() {
 
     setError("");
 
+    // -----------------------------------------------------
+    // BASIC VALIDATION
+    // -----------------------------------------------------
+
     if (!form.name.trim()) {
       setError("Product name is required.");
       return;
@@ -168,7 +183,7 @@ function AdminProductsPage() {
     }
 
     if (!form.image.trim()) {
-      setError("Product image URL is required.");
+      setError("Main product image URL is required.");
       return;
     }
 
@@ -177,12 +192,21 @@ function AdminProductsPage() {
       return;
     }
 
+    // -----------------------------------------------------
+    // BUILD IMAGE ARRAY
+    // -----------------------------------------------------
+
+    const additionalImages = [form.image2, form.image3]
+      .map((image) => image.trim())
+      .filter(Boolean);
+
     setSaving(true);
 
     try {
       const productData = {
         name: form.name.trim(),
         volume: form.volume.trim(),
+
         price: Number(form.price),
 
         oldPrice: form.oldPrice !== "" ? Number(form.oldPrice) : undefined,
@@ -191,7 +215,11 @@ function AdminProductsPage() {
 
         badge: form.badge.trim() || undefined,
 
+        // Main image
         image: form.image.trim(),
+
+        // Additional images
+        images: additionalImages.length > 0 ? additionalImages : undefined,
 
         stock: Number(form.stock),
       };
@@ -392,8 +420,6 @@ function AdminProductsPage() {
 
       <div className="mt-6 rounded-[22px] border border-[#E7E1D7] bg-white p-4">
         <div className="flex flex-col gap-3 md:flex-row">
-          {/* Search */}
-
           <div className="relative flex-1">
             <Search
               size={18}
@@ -409,17 +435,13 @@ function AdminProductsPage() {
             />
           </div>
 
-          {/* Status */}
-
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
             className="h-12 rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
           >
             <option value="all">All Products</option>
-
             <option value="active">Active</option>
-
             <option value="inactive">Inactive</option>
           </select>
         </div>
@@ -772,28 +794,143 @@ function AdminProductsPage() {
                 </div>
               </div>
 
-              {/* IMAGE */}
+              {/* =================================================
+                  PRODUCT IMAGES
+              ================================================= */}
 
               <div>
-                <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
-                  Product Image URL
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                    Product Images
+                  </label>
 
-                <input
-                  name="image"
-                  value={form.image}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                  className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
-                />
+                  <span className="text-[10px] text-[#999]">
+                    Up to 3 images
+                  </span>
+                </div>
 
-                {form.image && (
-                  <div className="mt-3 flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-[#E5DED3] bg-[#F7F4EE]">
-                    <img
-                      src={form.image}
-                      alt="Preview"
-                      className="h-full w-full object-contain p-2"
-                    />
+                {/* IMAGE 1 */}
+
+                <div className="mt-3">
+                  <label className="text-xs font-medium text-[#555]">
+                    Image 1 — Main Image *
+                  </label>
+
+                  <input
+                    name="image"
+                    value={form.image}
+                    onChange={handleChange}
+                    placeholder="https://..."
+                    className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
+                  />
+
+                  {form.image && (
+                    <div className="mt-3 h-24 w-24 overflow-hidden rounded-xl border border-[#E5DED3] bg-[#F7F4EE]">
+                      <img
+                        src={form.image}
+                        alt="Main product preview"
+                        className="h-full w-full object-contain p-2"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* IMAGE 2 */}
+
+                <div className="mt-5">
+                  <label className="text-xs font-medium text-[#555]">
+                    Image 2 — Optional
+                  </label>
+
+                  <input
+                    name="image2"
+                    value={form.image2}
+                    onChange={handleChange}
+                    placeholder="https://..."
+                    className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
+                  />
+
+                  {form.image2 && (
+                    <div className="mt-3 h-24 w-24 overflow-hidden rounded-xl border border-[#E5DED3] bg-[#F7F4EE]">
+                      <img
+                        src={form.image2}
+                        alt="Second product preview"
+                        className="h-full w-full object-contain p-2"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* IMAGE 3 */}
+
+                <div className="mt-5">
+                  <label className="text-xs font-medium text-[#555]">
+                    Image 3 — Optional
+                  </label>
+
+                  <input
+                    name="image3"
+                    value={form.image3}
+                    onChange={handleChange}
+                    placeholder="https://..."
+                    className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
+                  />
+
+                  {form.image3 && (
+                    <div className="mt-3 h-24 w-24 overflow-hidden rounded-xl border border-[#E5DED3] bg-[#F7F4EE]">
+                      <img
+                        src={form.image3}
+                        alt="Third product preview"
+                        className="h-full w-full object-contain p-2"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* IMAGE PREVIEW ROW */}
+
+                {(form.image || form.image2 || form.image3) && (
+                  <div className="mt-5 rounded-xl border border-[#E7E1D7] bg-[#FCFBF8] p-4">
+                    <p className="mb-3 text-[9px] font-semibold uppercase tracking-[1.5px] text-[#999]">
+                      Gallery Preview
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      {[form.image, form.image2, form.image3].map(
+                        (image, index) =>
+                          image ? (
+                            <div
+                              key={index}
+                              className="aspect-square overflow-hidden rounded-xl border border-[#E5DED3] bg-white"
+                            >
+                              <img
+                                src={image}
+                                alt={`Product preview ${index + 1}`}
+                                className="h-full w-full object-contain p-2"
+                                onError={(event) => {
+                                  event.currentTarget.style.display = "none";
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              key={index}
+                              className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-[#E5DED3] bg-white"
+                            >
+                              <ImageIcon size={20} className="text-[#CCC]" />
+                            </div>
+                          )
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -876,17 +1013,40 @@ function AdminProductsPage() {
             </div>
 
             <div className="p-6">
-              <div className="flex justify-center rounded-2xl bg-[#F7F4EE] p-6">
-                {viewingProduct.image ? (
-                  <img
-                    src={viewingProduct.image}
-                    alt={viewingProduct.name}
-                    className="h-48 w-48 object-contain"
-                  />
-                ) : (
-                  <ImageIcon size={40} className="text-[#AAA]" />
-                )}
+              {/* IMAGE GALLERY */}
+
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  viewingProduct.image,
+                  ...(Array.isArray(viewingProduct.images)
+                    ? viewingProduct.images
+                    : []),
+                ]
+                  .filter(Boolean)
+                  .slice(0, 3)
+                  .map((image, index) => (
+                    <div
+                      key={index}
+                      className="aspect-square overflow-hidden rounded-2xl bg-[#F7F4EE]"
+                    >
+                      <img
+                        src={image}
+                        alt={`${viewingProduct.name} ${index + 1}`}
+                        className="h-full w-full object-contain p-4"
+                      />
+                    </div>
+                  ))}
               </div>
+
+              {/* FALLBACK */}
+
+              {!viewingProduct.image &&
+                (!viewingProduct.images ||
+                  viewingProduct.images.length === 0) && (
+                  <div className="flex h-48 items-center justify-center rounded-2xl bg-[#F7F4EE]">
+                    <ImageIcon size={40} className="text-[#AAA]" />
+                  </div>
+                )}
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-[#FCFBF8] p-4">

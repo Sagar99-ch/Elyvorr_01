@@ -27,7 +27,6 @@ export const getAll = query({
 GET SINGLE PRODUCT
 ==================================================
 */
-
 export const getById = query({
   args: {
     id: v.id("products"),
@@ -43,7 +42,6 @@ export const getById = query({
 ADD PRODUCT
 ==================================================
 */
-
 export const add = mutation({
   args: {
     name: v.string(),
@@ -56,7 +54,11 @@ export const add = mutation({
 
     badge: v.optional(v.string()),
 
+    // Main product image
     image: v.string(),
+
+    // Additional product images
+    images: v.optional(v.array(v.string())),
 
     stock: v.number(),
   },
@@ -73,7 +75,11 @@ export const add = mutation({
 
       badge: args.badge,
 
+      // Main image
       image: args.image,
+
+      // Additional images
+      images: args.images,
 
       stock: args.stock,
 
@@ -91,7 +97,6 @@ export const add = mutation({
 UPDATE PRODUCT
 ==================================================
 */
-
 export const update = mutation({
   args: {
     id: v.id("products"),
@@ -106,7 +111,11 @@ export const update = mutation({
 
     badge: v.optional(v.string()),
 
+    // Main product image
     image: v.optional(v.string()),
+
+    // Additional product images
+    images: v.optional(v.array(v.string())),
 
     stock: v.optional(v.number()),
 
@@ -137,7 +146,6 @@ export const update = mutation({
 DELETE PRODUCT
 ==================================================
 */
-
 export const remove = mutation({
   args: {
     id: v.id("products"),
@@ -164,7 +172,6 @@ export const remove = mutation({
 UPDATE STOCK
 ==================================================
 */
-
 export const updateStock = mutation({
   args: {
     id: v.id("products"),

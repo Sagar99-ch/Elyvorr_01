@@ -19,6 +19,8 @@ export default defineSchema({
 
     image: v.string(),
 
+    images: v.optional(v.array(v.string())),
+
     stock: v.number(),
 
     isActive: v.boolean(),

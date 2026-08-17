@@ -4,34 +4,63 @@ import { ArrowRight, Sparkles } from "lucide-react";
 function AboutPage() {
   return (
     <main className="min-h-screen bg-[#FAF8F4] text-[#181818]">
-      {/* ================= HERO ================= */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
-      <section className="border-b border-[#E7E1D7] px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
+      <section className="border-b border-[#E7E1D7] bg-[#FAF8F4] px-5 py-20 sm:px-8 sm:py-28 lg:px-12 lg:py-32">
         <div className="mx-auto max-w-7xl">
-          <p className="text-xs font-semibold uppercase tracking-[4px] text-[#C9A96E]">
+          {/* LABEL */}
+
+          <p
+            className="
+              text-[11px]
+              font-semibold
+              uppercase
+              tracking-[4px]
+              text-[#C9A96E]
+              sm:text-xs
+              sm:tracking-[5px]
+            "
+          >
             About ELYVORR
           </p>
 
-          <div className="mt-6 grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-            <div>
-              <h1 className="font-serif text-5xl font-semibold leading-[1.05] sm:text-6xl lg:text-8xl">
-                Fragrance is
-                <span className="block italic font-normal">
-                  more than a scent.
-                </span>
-              </h1>
-            </div>
+          {/* HEADING */}
 
-            <p className="max-w-xl text-base leading-8 text-[#777]">
-              ELYVORR is created for people who believe fragrance is part of
-              their identity — something that stays with you, speaks for you,
-              and becomes part of your most memorable moments.
-            </p>
-          </div>
+          <h1
+            className="
+              mt-12
+              max-w-6xl
+              font-serif
+              text-[58px]
+              font-medium
+              leading-[0.95]
+              tracking-[-2px]
+              text-[#181818]
+
+              sm:mt-14
+              sm:text-7xl
+              sm:tracking-[-3px]
+
+              lg:mt-16
+              lg:text-[110px]
+              lg:leading-[0.9]
+              lg:tracking-[-5px]
+            "
+          >
+            Fragrance is
+            <br />
+            <span className="italic font-normal">more than a</span>
+            <br />
+            scent.
+          </h1>
         </div>
       </section>
 
-      {/* ================= BRAND STORY ================= */}
+      {/* =====================================================
+          BRAND STORY
+      ===================================================== */}
 
       <section className="px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
@@ -93,7 +122,23 @@ function AboutPage() {
 
             <Link
               to="/collection"
-              className="group mt-8 inline-flex items-center gap-3 border-b border-[#181818] pb-2 text-xs font-semibold uppercase tracking-[2px] transition hover:border-[#C9A96E] hover:text-[#C9A96E]"
+              className="
+                group
+                mt-8
+                inline-flex
+                items-center
+                gap-3
+                border-b
+                border-[#181818]
+                pb-2
+                text-xs
+                font-semibold
+                uppercase
+                tracking-[2px]
+                transition
+                hover:border-[#C9A96E]
+                hover:text-[#C9A96E]
+              "
             >
               Explore Our Fragrances
               <ArrowRight
@@ -105,7 +150,52 @@ function AboutPage() {
         </div>
       </section>
 
-      {/* ================= VALUES ================= */}
+      {/* =====================================================
+          SIGNATURE FRAGRANCE
+      ===================================================== */}
+
+      <section
+        className="
+          bg-[#F4E8EA]
+          px-5
+          py-24
+          sm:px-8
+          sm:py-28
+          lg:px-12
+          lg:py-36
+        "
+      >
+        <div className="mx-auto max-w-7xl text-center">
+          <h2
+            className="
+              mx-auto
+              max-w-6xl
+              font-sans
+              text-5xl
+              font-extrabold
+              uppercase
+              leading-[0.95]
+              tracking-[-2px]
+              text-[#65708A]
+
+              sm:text-6xl
+
+              lg:text-8xl
+              lg:tracking-[-4px]
+            "
+          >
+            Creating a fragrance
+            <br />
+            that becomes your
+            <br />
+            signature
+          </h2>
+        </div>
+      </section>
+
+      {/* =====================================================
+          VALUES
+      ===================================================== */}
 
       <section className="border-y border-[#E7E1D7] bg-white px-5 py-20 sm:px-8 lg:px-12 lg:py-24">
         <div className="mx-auto max-w-7xl">
@@ -123,6 +213,8 @@ function AboutPage() {
           </div>
 
           <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {/* QUALITY */}
+
             <div className="rounded-[24px] border border-[#E7E1D7] bg-[#FAF8F4] p-8">
               <span className="font-serif text-4xl text-[#C9A96E]">01</span>
 
@@ -136,6 +228,8 @@ function AboutPage() {
               </p>
             </div>
 
+            {/* INDIVIDUALITY */}
+
             <div className="rounded-[24px] border border-[#E7E1D7] bg-[#FAF8F4] p-8">
               <span className="font-serif text-4xl text-[#C9A96E]">02</span>
 
@@ -148,6 +242,8 @@ function AboutPage() {
                 effortless.
               </p>
             </div>
+
+            {/* SIMPLICITY */}
 
             <div className="rounded-[24px] border border-[#E7E1D7] bg-[#FAF8F4] p-8">
               <span className="font-serif text-4xl text-[#C9A96E]">03</span>
@@ -165,7 +261,9 @@ function AboutPage() {
         </div>
       </section>
 
-      {/* ================= FOUR FRAGRANCES ================= */}
+      {/* =====================================================
+          COLLECTION
+      ===================================================== */}
 
       <section className="px-5 py-20 sm:px-8 lg:px-12 lg:py-28">
         <div className="mx-auto max-w-7xl text-center">
@@ -187,7 +285,24 @@ function AboutPage() {
 
           <Link
             to="/collection"
-            className="group mt-8 inline-flex items-center gap-3 rounded-full bg-[#181818] px-7 py-4 text-xs font-semibold uppercase tracking-[2px] text-white transition hover:bg-[#C9A96E]"
+            className="
+              group
+              mt-8
+              inline-flex
+              items-center
+              gap-3
+              rounded-full
+              bg-[#181818]
+              px-7
+              py-4
+              text-xs
+              font-semibold
+              uppercase
+              tracking-[2px]
+              text-white
+              transition
+              hover:bg-[#C9A96E]
+            "
           >
             Explore Collection
             <ArrowRight
@@ -198,7 +313,9 @@ function AboutPage() {
         </div>
       </section>
 
-      {/* ================= FINAL CTA ================= */}
+      {/* =====================================================
+          FINAL CTA
+      ===================================================== */}
 
       <section className="bg-[#181818] px-5 py-20 text-center text-white sm:px-8 lg:py-28">
         <p className="text-xs font-semibold uppercase tracking-[4px] text-[#C9A96E]">
@@ -214,7 +331,24 @@ function AboutPage() {
 
         <Link
           to="/collection"
-          className="mt-9 inline-flex items-center gap-3 rounded-full bg-white px-8 py-4 text-xs font-semibold uppercase tracking-[2px] text-[#181818] transition hover:bg-[#C9A96E] hover:text-white"
+          className="
+            mt-9
+            inline-flex
+            items-center
+            gap-3
+            rounded-full
+            bg-white
+            px-8
+            py-4
+            text-xs
+            font-semibold
+            uppercase
+            tracking-[2px]
+            text-[#181818]
+            transition
+            hover:bg-[#C9A96E]
+            hover:text-white
+          "
         >
           Shop ELYVORR
           <ArrowRight size={16} />

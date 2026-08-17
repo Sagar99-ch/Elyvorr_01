@@ -528,9 +528,7 @@ function ProductDetailsPage() {
                     product.stock > 0 ? "text-[#2F8F46]" : "text-red-500"
                   }`}
                 >
-                  {product.stock > 0
-                    ? `In Stock • ${product.stock} available`
-                    : "Out of Stock"}
+                  {product.stock > 0 ? "In Stock" : "Out of Stock"}
                 </span>
               </div>
 
