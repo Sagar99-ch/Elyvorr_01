@@ -158,9 +158,9 @@ function ProductDetailsPage() {
     For now we use the main image.
   */
 
-  const galleryImages =
-    product.images?.length > 0 ? product.images : [product.image];
-
+  const galleryImages = [product.image, ...(product.images || [])].filter(
+    Boolean
+  );
   // ===================================================
   // PRICE
   // ===================================================
@@ -275,10 +275,28 @@ function ProductDetailsPage() {
             ================================================= */}
 
             <section>
-              <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-5 sm:grid-cols-[110px_minmax(0,1fr)]">
+              <div
+                className="
+                  grid
+                  gap-4
+                  sm:grid-cols-[110px_minmax(0,1fr)]
+                  sm:gap-5
+                "
+              >
                 {/* THUMBNAILS */}
 
-                <div className="flex flex-col gap-4">
+                <div
+                  className="
+                    order-2
+                    grid
+                    grid-cols-3
+                    gap-3
+                    sm:order-1
+                    sm:flex
+                    sm:flex-col
+                    sm:gap-4
+                  "
+                >
                   {galleryImages.slice(0, 3).map((image, index) => (
                     <button
                       key={`${image}-${index}`}
