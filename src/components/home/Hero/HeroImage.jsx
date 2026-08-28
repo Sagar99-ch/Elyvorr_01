@@ -3,99 +3,121 @@ function HeroImage() {
     <div
       className="
         relative
-        mt-8
         flex
-        min-h-[340px]
+        min-h-[380px]
         items-center
         justify-center
-
-        sm:mt-14
-        sm:min-h-[400px]
-
-        lg:mt-0
+        sm:min-h-[460px]
         lg:min-h-[560px]
       "
     >
-      {/* ================= BACKGROUND CIRCLE ================= */}
+      {/* ================= OUTER CIRCLE ================= */}
 
       <div
         className="
           absolute
-          h-[270px]
-          w-[270px]
+          h-[280px]
+          w-[280px]
           rounded-full
           bg-[#F3EBDD]
-
-          sm:h-[340px]
-          sm:w-[340px]
-
-          lg:h-[420px]
-          lg:w-[420px]
+          sm:h-[360px]
+          sm:w-[360px]
+          lg:h-[440px]
+          lg:w-[440px]
         "
       />
 
-      {/* ================= SOFT DECORATION ================= */}
+      {/* ================= INNER CIRCLE ================= */}
 
       <div
         className="
           absolute
-          h-[215px]
-          w-[215px]
+          h-[235px]
+          w-[235px]
           rounded-full
           border
           border-[#E5D8C4]
-
-          sm:h-[280px]
-          sm:w-[280px]
-
-          lg:h-[350px]
-          lg:w-[350px]
+          sm:h-[305px]
+          sm:w-[305px]
+          lg:h-[375px]
+          lg:w-[375px]
         "
       />
 
-      {/* ================= PERFUME ================= */}
-
-      <img
-        src="/images/elyvorr-hero.png"
-        alt="ELYVORR luxury perfume"
-        className="
-          relative
-          z-10
-          h-[330px]
-          w-auto
-          max-w-[290px]
-          object-contain
-          drop-shadow-[0_25px_35px_rgba(30,25,20,0.18)]
-          transition-transform
-          duration-700
-          hover:scale-105
-
-          sm:h-[420px]
-          sm:max-w-[360px]
-
-          lg:h-[540px]
-          lg:max-w-[480px]
-        "
-      />
-
-      {/* ================= BRAND DECORATION ================= */}
+      {/* ================= LOGO ================= */}
 
       <div
         className="
-          absolute
-          bottom-0
-          left-1/2
-          z-20
-          -translate-x-1/2
-          text-center
-          lg:hidden
+          relative
+          z-10
+          flex
+          h-[220px]
+          w-[220px]
+          flex-col
+          items-center
+          justify-center
+          rounded-full
+          bg-[#FAF8F4]
+          shadow-[0_20px_50px_rgba(30,25,20,0.10)]
+          sm:h-[290px]
+          sm:w-[290px]
+          lg:h-[355px]
+          lg:w-[355px]
         "
       >
-        <p className="text-[9px] font-semibold uppercase tracking-[5px] text-[#C9A96E]">
+        {/* EV MONOGRAM */}
+
+        <div
+          className="
+            font-serif
+            text-[72px]
+            leading-none
+            tracking-[-8px]
+            text-[#C9A96E]
+            sm:text-[90px]
+            lg:text-[110px]
+          "
+        >
+          E<span className="relative -ml-5">V</span>
+        </div>
+
+        {/* BRAND */}
+
+        <p
+          className="
+            mt-2
+            font-serif
+            text-3xl
+            font-medium
+            tracking-[3px]
+            text-[#A98242]
+            sm:text-4xl
+            lg:text-5xl
+          "
+        >
           ELYVORR
         </p>
 
-        <div className="mx-auto mt-2 h-px w-16 bg-[#C9A96E]" />
+        {/* PERFUME */}
+
+        <div className="mt-2 flex items-center gap-3">
+          <span className="h-px w-8 bg-[#C9A96E]" />
+
+          <span
+            className="
+              text-[9px]
+              font-semibold
+              uppercase
+              tracking-[5px]
+              text-[#A98242]
+              sm:text-[10px]
+            "
+          >
+            Perfume
+          </span>
+
+          <span className="h-px w-8 bg-[#C9A96E]" />
+        </div>
       </div>
     </div>
   );
