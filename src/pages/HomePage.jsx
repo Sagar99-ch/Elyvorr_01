@@ -6,6 +6,14 @@ import FeaturedProducts from "../components/home/FeaturedProducts";
 
 function HomePage() {
   useEffect(() => {
+    const redirectKey = "elyvorr_home_scroll_done";
+
+    // Agar is session mein already scroll ho chuka hai,
+    // to dobara automatically scroll mat karo.
+    if (sessionStorage.getItem(redirectKey) === "true") {
+      return;
+    }
+
     const timer = setTimeout(() => {
       const perfumeSection = document.getElementById("featured-products");
 
@@ -14,6 +22,8 @@ function HomePage() {
           behavior: "smooth",
           block: "start",
         });
+
+        sessionStorage.setItem(redirectKey, "true");
       }
     }, 3000);
 
@@ -23,7 +33,6 @@ function HomePage() {
   return (
     <Layout>
       <Hero />
-
       <FeaturedProducts />
     </Layout>
   );

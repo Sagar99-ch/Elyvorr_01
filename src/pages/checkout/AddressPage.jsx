@@ -136,7 +136,7 @@ function AddressPage() {
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5 sm:px-8">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/bag")}
             className="flex items-center gap-2 text-sm font-medium text-[#555] transition hover:text-[#C9A96E]"
           >
             <ArrowLeft size={18} />

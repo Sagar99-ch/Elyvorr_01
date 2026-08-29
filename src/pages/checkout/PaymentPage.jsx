@@ -16,7 +16,6 @@ function getSessionId() {
 
   if (!sessionId) {
     sessionId = crypto.randomUUID();
-
     localStorage.setItem(storageKey, sessionId);
   }
 
@@ -33,7 +32,6 @@ function PaymentPage() {
   const [sessionId] = useState(() => getSessionId());
 
   const [paymentLoading, setPaymentLoading] = useState(false);
-
   const [paymentError, setPaymentError] = useState("");
 
   // =====================================================
@@ -53,10 +51,14 @@ function PaymentPage() {
   });
 
   // =====================================================
-  // ORDER + RAZORPAY FUNCTIONS
+  // CONVEX MUTATIONS / ACTIONS
   // =====================================================
 
   const createPendingOrder = useMutation(api.orders.createPendingOrder);
+
+  // IMPORTANT:
+  // Removes deleted/inactive products from cart
+  const cleanupCart = useMutation(api.cart.cleanupCart);
 
   const createRazorpayOrder = useAction(api.payment.createRazorpayOrder);
 
@@ -69,32 +71,73 @@ function PaymentPage() {
   const isLoading = cartItems === undefined || savedAddress === undefined;
 
   // =====================================================
-  // TOTALS
+  // SUBTOTAL
   // =====================================================
 
   const subtotal = useMemo(() => {
     if (!cartItems) return 0;
 
     return cartItems.reduce(
-      (total, item) => total + item.price * item.quantity,
+      (total, item) =>
+        total + Number(item.price || 0) * Number(item.quantity || 0),
       0
     );
   }, [cartItems]);
 
-  const shipping = cartItems?.length > 0 ? 99 : 0;
+  // =====================================================
+  // LIVE DISCOUNT
+  //
+  // Example:
+  // oldPrice = 399
+  // price = 299
+  //
+  // Discount = 100
+  // =====================================================
 
-  const gst = Math.round(subtotal * 0.08);
+  const discount = useMemo(() => {
+    if (!cartItems) return 0;
 
-  const grandTotal = subtotal + shipping + gst;
+    return cartItems.reduce((total, item) => {
+      const oldPrice = Number(item.oldPrice || 0);
+
+      const currentPrice = Number(item.price || 0);
+
+      const quantity = Number(item.quantity || 0);
+
+      const savingPerItem =
+        oldPrice > currentPrice ? oldPrice - currentPrice : 0;
+
+      return total + savingPerItem * quantity;
+    }, 0);
+  }, [cartItems]);
+
+  // =====================================================
+  // SHIPPING
+  // =====================================================
+
+  const shipping = cartItems?.length > 0 ? 1 : 0;
+
+  // =====================================================
+  // GST REMOVED
+  // =====================================================
+
+  const grandTotal = Math.max(0, subtotal - discount + shipping);
+
+  // =====================================================
+  // ITEM COUNT
+  // =====================================================
 
   const itemCount = useMemo(() => {
     if (!cartItems) return 0;
 
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
+    return cartItems.reduce(
+      (total, item) => total + Number(item.quantity || 0),
+      0
+    );
   }, [cartItems]);
 
   // =====================================================
-  // LOAD RAZORPAY CHECKOUT
+  // LOAD RAZORPAY
   // =====================================================
 
   const loadRazorpay = () => {
@@ -104,9 +147,23 @@ function PaymentPage() {
         return;
       }
 
+      const existingScript = document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(true));
+
+        existingScript.addEventListener("error", () => resolve(false));
+
+        return;
+      }
+
       const script = document.createElement("script");
 
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
+
+      script.async = true;
 
       script.onload = () => resolve(true);
 
@@ -117,17 +174,36 @@ function PaymentPage() {
   };
 
   // =====================================================
+  // STALE PRODUCT ERROR CHECK
+  // =====================================================
+
+  const isStaleProductError = (error) => {
+    const message = String(error?.message || "").toLowerCase();
+
+    return (
+      message.includes("product") &&
+      (message.includes("no longer exists") ||
+        message.includes("no longer available") ||
+        message.includes("does not exist") ||
+        message.includes("not available") ||
+        message.includes("deleted"))
+    );
+  };
+
+  // =====================================================
   // PROCEED TO PAY
   // =====================================================
 
   const handleProceedToPay = async () => {
     if (!savedAddress) {
       navigate("/checkout/address");
+
       return;
     }
 
     if (!cartItems || cartItems.length === 0) {
       setPaymentError("Your shopping bag is empty.");
+
       return;
     }
 
@@ -136,8 +212,44 @@ function PaymentPage() {
 
     try {
       // =================================================
-      // 1. CREATE PENDING ORDER
+      // STEP 1
+      // CLEANUP STALE CART ITEMS
       // =================================================
+
+      console.log("ELYVORR: Cleaning cart...");
+
+      const cleanupResult = await cleanupCart({
+        sessionId,
+      });
+
+      console.log("ELYVORR: Cleanup result:", cleanupResult);
+
+      // =================================================
+      // STALE PRODUCT FOUND
+      // =================================================
+
+      if (cleanupResult?.removedCount > 0) {
+        setPaymentLoading(false);
+
+        setPaymentError(
+          "One or more unavailable products were removed from your bag. Please review your bag and try again."
+        );
+
+        setTimeout(() => {
+          navigate("/bag", {
+            replace: true,
+          });
+        }, 1200);
+
+        return;
+      }
+
+      // =================================================
+      // STEP 2
+      // CREATE PENDING ORDER
+      // =================================================
+
+      console.log("ELYVORR: Creating pending order...");
 
       const pendingOrder = await createPendingOrder({
         sessionId,
@@ -148,7 +260,8 @@ function PaymentPage() {
       }
 
       // =================================================
-      // 2. CREATE RAZORPAY ORDER
+      // STEP 3
+      // CREATE RAZORPAY ORDER
       // =================================================
 
       const razorpayOrder = await createRazorpayOrder({
@@ -164,7 +277,8 @@ function PaymentPage() {
       }
 
       // =================================================
-      // 3. LOAD RAZORPAY
+      // STEP 4
+      // LOAD RAZORPAY
       // =================================================
 
       const razorpayLoaded = await loadRazorpay();
@@ -174,7 +288,8 @@ function PaymentPage() {
       }
 
       // =================================================
-      // 4. RAZORPAY CHECKOUT OPTIONS
+      // STEP 5
+      // RAZORPAY OPTIONS
       // =================================================
 
       const options = {
@@ -232,7 +347,10 @@ function PaymentPage() {
               throw new Error("Payment verification failed.");
             }
 
-            // Save last order
+            // =================================================
+            // SAVE LAST ORDER
+            // =================================================
+
             localStorage.setItem(
               "elyvorr_last_order",
               JSON.stringify({
@@ -248,7 +366,10 @@ function PaymentPage() {
 
             setPaymentLoading(false);
 
-            // Go to success page
+            // =================================================
+            // SUCCESS PAGE
+            // =================================================
+
             navigate(
               `/order-success?order=${encodeURIComponent(
                 pendingOrder.orderNumber
@@ -292,9 +413,33 @@ function PaymentPage() {
     } catch (error) {
       console.error("Payment initialization error:", error);
 
-      setPaymentError(error?.message || "Unable to start payment.");
-
       setPaymentLoading(false);
+
+      // =================================================
+      // STALE PRODUCT
+      // =================================================
+
+      if (isStaleProductError(error)) {
+        setPaymentError(
+          "One of the products in your bag is no longer available. Returning to your bag..."
+        );
+
+        setTimeout(() => {
+          navigate("/bag", {
+            replace: true,
+          });
+        }, 1500);
+
+        return;
+      }
+
+      // =================================================
+      // OTHER ERRORS
+      // =================================================
+
+      setPaymentError(
+        error?.message || "Unable to start payment. Please try again."
+      );
     }
   };
 
@@ -333,7 +478,9 @@ function PaymentPage() {
           <div className="mt-10 grid gap-7 lg:grid-cols-[minmax(0,1fr)_430px]">
             <div className="space-y-7">
               <div className="h-52 animate-pulse rounded-[26px] bg-white" />
+
               <div className="h-44 animate-pulse rounded-[26px] bg-white" />
+
               <div className="h-72 animate-pulse rounded-[26px] bg-white" />
             </div>
 
@@ -536,7 +683,7 @@ function PaymentPage() {
                 </div>
 
                 <span className="text-sm font-semibold text-[#2F8F46]">
-                  ₹99
+                  ₹{shipping}
                 </span>
               </div>
             </section>
@@ -695,21 +842,16 @@ function PaymentPage() {
                 <div className="flex justify-between">
                   <span className="text-[#777]">Discount</span>
 
-                  <span className="font-semibold text-[#2F8F46]">₹0</span>
+                  <span className="font-semibold text-[#2F8F46]">
+                    -₹
+                    {discount.toLocaleString("en-IN")}
+                  </span>
                 </div>
 
                 <div className="flex justify-between">
                   <span className="text-[#777]">Shipping</span>
 
                   <span className="font-semibold">₹{shipping}</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-[#777]">GST</span>
-
-                  <span className="font-semibold">
-                    ₹{gst.toLocaleString("en-IN")}
-                  </span>
                 </div>
               </div>
 

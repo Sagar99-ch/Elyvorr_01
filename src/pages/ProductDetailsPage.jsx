@@ -319,7 +319,7 @@ function ProductDetailsPage() {
 
                 {/* MAIN IMAGE */}
 
-                <div className="relative mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border border-[#E5DED3] bg-[#F2EDE4]">
+                <div className="relative order-1 mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border border-[#E5DED3] bg-[#F2EDE4] sm:order-2">
                   <div className="aspect-[4/5] max-h-[560px] w-full">
                     <img
                       src={galleryImages[activeImage] || product.image}

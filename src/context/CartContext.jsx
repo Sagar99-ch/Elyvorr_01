@@ -1,15 +1,8 @@
 import { createContext, useContext, useMemo, useState } from "react";
-
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 const CartContext = createContext(null);
-
-/*
-==================================================
-CREATE / GET SESSION ID
-==================================================
-*/
 
 function getSessionId() {
   const storageKey = "elyvorr_session_id";
@@ -18,7 +11,6 @@ function getSessionId() {
 
   if (!sessionId) {
     sessionId = crypto.randomUUID();
-
     localStorage.setItem(storageKey, sessionId);
   }
 
@@ -26,45 +18,42 @@ function getSessionId() {
 }
 
 export function CartProvider({ children }) {
-  /*
-  ==================================================
-  SESSION
-  ==================================================
-  */
+  // =====================================================
+  // SESSION
+  // =====================================================
 
   const [sessionId] = useState(() => getSessionId());
 
-  /*
-  ==================================================
-  CONVEX QUERY
-  ==================================================
-  */
+  // =====================================================
+  // CART
+  // =====================================================
 
   const cartItems = useQuery(api.cart.getCart, {
     sessionId,
   });
 
-  /*
-  ==================================================
-  CONVEX MUTATIONS
-  ==================================================
-  */
+  // =====================================================
+  // PRODUCTS
+  // Used to get oldPrice for discount calculation
+  // =====================================================
+
+  const products = useQuery(api.products.getAll, {
+    includeInactive: true,
+  });
+
+  // =====================================================
+  // MUTATIONS
+  // =====================================================
 
   const addItemMutation = useMutation(api.cart.addItem);
-
   const increaseMutation = useMutation(api.cart.increaseQuantity);
-
   const decreaseMutation = useMutation(api.cart.decreaseQuantity);
-
   const removeMutation = useMutation(api.cart.removeItem);
-
   const clearMutation = useMutation(api.cart.clearCart);
 
-  /*
-  ==================================================
-  ADD TO BAG
-  ==================================================
-  */
+  // =====================================================
+  // ADD TO BAG
+  // =====================================================
 
   const addToBag = async (product) => {
     if (!product?.id) {
@@ -82,11 +71,9 @@ export function CartProvider({ children }) {
     }
   };
 
-  /*
-  ==================================================
-  INCREASE QUANTITY
-  ==================================================
-  */
+  // =====================================================
+  // INCREASE QUANTITY
+  // =====================================================
 
   const increaseQuantity = async (productId) => {
     try {
@@ -99,11 +86,9 @@ export function CartProvider({ children }) {
     }
   };
 
-  /*
-  ==================================================
-  DECREASE QUANTITY
-  ==================================================
-  */
+  // =====================================================
+  // DECREASE QUANTITY
+  // =====================================================
 
   const decreaseQuantity = async (productId) => {
     try {
@@ -116,11 +101,9 @@ export function CartProvider({ children }) {
     }
   };
 
-  /*
-  ==================================================
-  REMOVE FROM BAG
-  ==================================================
-  */
+  // =====================================================
+  // REMOVE FROM BAG
+  // =====================================================
 
   const removeFromBag = async (productId) => {
     try {
@@ -133,11 +116,9 @@ export function CartProvider({ children }) {
     }
   };
 
-  /*
-  ==================================================
-  CLEAR BAG
-  ==================================================
-  */
+  // =====================================================
+  // CLEAR BAG
+  // =====================================================
 
   const clearBag = async () => {
     try {
@@ -149,71 +130,128 @@ export function CartProvider({ children }) {
     }
   };
 
-  /*
-  ==================================================
-  TOTAL ITEMS
-  ==================================================
-  */
+  // =====================================================
+  // ENRICH CART ITEMS
+  //
+  // Cart API gives us price/quantity.
+  // Products API gives us oldPrice.
+  //
+  // We combine both here.
+  // =====================================================
+
+  const enrichedCartItems = useMemo(() => {
+    if (!cartItems || !products) {
+      return [];
+    }
+
+    return cartItems.map((item) => {
+      const product = products.find(
+        (product) => product._id === item.productId || product._id === item.id
+      );
+
+      return {
+        ...item,
+
+        // Product information
+        name: item.name ?? product?.name,
+        volume: item.volume ?? product?.volume,
+        image: item.image ?? product?.image,
+        reviews: item.reviews ?? product?.reviews,
+
+        // IMPORTANT:
+        // Get oldPrice from product if cart item doesn't have it
+        oldPrice: item.oldPrice ?? product?.oldPrice,
+      };
+    });
+  }, [cartItems, products]);
+
+  // =====================================================
+  // TOTAL ITEMS
+  // =====================================================
 
   const totalItems = useMemo(() => {
-    if (!cartItems) {
-      return 0;
-    }
-
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
-  }, [cartItems]);
-
-  /*
-  ==================================================
-  SUBTOTAL
-  ==================================================
-  */
-
-  const subtotal = useMemo(() => {
-    if (!cartItems) {
-      return 0;
-    }
-
-    return cartItems.reduce(
-      (total, item) => total + item.price * item.quantity,
+    return enrichedCartItems.reduce(
+      (total, item) => total + Number(item.quantity || 0),
       0
     );
-  }, [cartItems]);
+  }, [enrichedCartItems]);
 
-  /*
-  ==================================================
-  CONTEXT VALUE
-  ==================================================
-  */
+  // =====================================================
+  // SUBTOTAL
+  //
+  // Example:
+  // ₹299 × 2 = ₹598
+  // =====================================================
+
+  const subtotal = useMemo(() => {
+    return enrichedCartItems.reduce(
+      (total, item) =>
+        total + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
+  }, [enrichedCartItems]);
+
+  // =====================================================
+  // DISCOUNT
+  //
+  // Example:
+  // oldPrice = ₹399
+  // price    = ₹299
+  // saving   = ₹100
+  //
+  // quantity 2
+  // discount = ₹200
+  // =====================================================
+
+  const discount = useMemo(() => {
+    return enrichedCartItems.reduce((total, item) => {
+      const oldPrice = Number(item.oldPrice || 0);
+      const currentPrice = Number(item.price || 0);
+      const quantity = Number(item.quantity || 0);
+
+      const savingPerItem =
+        oldPrice > currentPrice ? oldPrice - currentPrice : 0;
+
+      return total + savingPerItem * quantity;
+    }, 0);
+  }, [enrichedCartItems]);
+
+  // =====================================================
+  // LOADING
+  // =====================================================
+
+  const isLoading = cartItems === undefined || products === undefined;
+
+  // =====================================================
+  // CONTEXT VALUE
+  // =====================================================
 
   const value = {
-    cartItems: cartItems ?? [],
+    cartItems: enrichedCartItems,
 
-    isLoading: cartItems === undefined,
+    isLoading,
 
     addToBag,
-
     increaseQuantity,
-
     decreaseQuantity,
-
     removeFromBag,
-
     clearBag,
 
     totalItems,
-
     subtotal,
+    discount,
   };
+
+  // =====================================================
+  // PROVIDER
+  // =====================================================
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
-/*
-==================================================
-USE CART
-==================================================
-*/
+// =====================================================
+// HOOK
+// =====================================================
 
 export function useCart() {
   const context = useContext(CartContext);

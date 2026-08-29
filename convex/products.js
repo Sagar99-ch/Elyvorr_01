@@ -1,11 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/*
-==================================================
-GET ALL ACTIVE PRODUCTS
-==================================================
-*/
+/**
+ * ==================================================
+ * GET ALL ACTIVE PRODUCTS
+ * ==================================================
+ */
+
 export const getAll = query({
   args: {
     includeInactive: v.optional(v.boolean()),
@@ -22,11 +23,12 @@ export const getAll = query({
   },
 });
 
-/*
-==================================================
-GET SINGLE PRODUCT
-==================================================
-*/
+/**
+ * ==================================================
+ * GET SINGLE PRODUCT
+ * ==================================================
+ */
+
 export const getById = query({
   args: {
     id: v.id("products"),
@@ -37,17 +39,19 @@ export const getById = query({
   },
 });
 
-/*
-==================================================
-ADD PRODUCT
-==================================================
-*/
+/**
+ * ==================================================
+ * ADD PRODUCT
+ * ==================================================
+ */
+
 export const add = mutation({
   args: {
     name: v.string(),
     volume: v.string(),
 
     price: v.number(),
+
     oldPrice: v.optional(v.number()),
 
     reviews: v.number(),
@@ -66,9 +70,11 @@ export const add = mutation({
   handler: async (ctx, args) => {
     const productId = await ctx.db.insert("products", {
       name: args.name,
+
       volume: args.volume,
 
       price: args.price,
+
       oldPrice: args.oldPrice,
 
       reviews: args.reviews,
@@ -92,19 +98,22 @@ export const add = mutation({
   },
 });
 
-/*
-==================================================
-UPDATE PRODUCT
-==================================================
-*/
+/**
+ * ==================================================
+ * UPDATE PRODUCT
+ * ==================================================
+ */
+
 export const update = mutation({
   args: {
     id: v.id("products"),
 
     name: v.optional(v.string()),
+
     volume: v.optional(v.string()),
 
     price: v.optional(v.number()),
+
     oldPrice: v.optional(v.number()),
 
     reviews: v.optional(v.number()),
@@ -141,11 +150,22 @@ export const update = mutation({
   },
 });
 
-/*
-==================================================
-DELETE PRODUCT
-==================================================
-*/
+/**
+ * ==================================================
+ * DELETE / REMOVE PRODUCT
+ *
+ * IMPORTANT:
+ * Soft delete is used here.
+ *
+ * Product database se permanently delete
+ * nahi hoga. Sirf inactive hoga.
+ *
+ * Isse existing cart references safe rahenge.
+ * cleanupCart() inactive products ko cart se
+ * automatically remove kar dega.
+ * ==================================================
+ */
+
 export const remove = mutation({
   args: {
     id: v.id("products"),
@@ -158,23 +178,29 @@ export const remove = mutation({
       throw new Error("Product not found");
     }
 
-    await ctx.db.delete(args.id);
+    // Soft delete
+    await ctx.db.patch(args.id, {
+      isActive: false,
+    });
 
     return {
       success: true,
-      message: "Product deleted successfully",
+
+      message: "Product removed successfully",
     };
   },
 });
 
-/*
-==================================================
-UPDATE STOCK
-==================================================
-*/
+/**
+ * ==================================================
+ * UPDATE STOCK
+ * ==================================================
+ */
+
 export const updateStock = mutation({
   args: {
     id: v.id("products"),
+
     stock: v.number(),
   },
 

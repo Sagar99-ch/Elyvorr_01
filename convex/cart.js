@@ -1,11 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/*
-==================================================
-GET CART
-==================================================
-*/
+/**
+ * ==================================================
+ * GET CART
+ * ==================================================
+ */
 
 export const getCart = query({
   args: {
@@ -23,14 +23,18 @@ export const getCart = query({
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
 
+      // Missing/deleted product ko UI mein show nahi karenge
       if (!product || !product.isActive) {
         continue;
       }
 
       items.push({
         ...product,
+
         id: product._id,
+
         quantity: cartItem.quantity,
+
         cartId: cartItem._id,
       });
     }
@@ -39,11 +43,50 @@ export const getCart = query({
   },
 });
 
-/*
-==================================================
-ADD TO CART
-==================================================
-*/
+/**
+ * ==================================================
+ * CLEANUP STALE CART ITEMS
+ *
+ * Missing/deleted products ke cart records ko
+ * permanently remove karta hai.
+ * ==================================================
+ */
+
+export const cleanupCart = mutation({
+  args: {
+    sessionId: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const cartItems = await ctx.db
+      .query("cart")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    let removedCount = 0;
+
+    for (const cartItem of cartItems) {
+      const product = await ctx.db.get(cartItem.productId);
+
+      if (!product || !product.isActive) {
+        await ctx.db.delete(cartItem._id);
+
+        removedCount++;
+      }
+    }
+
+    return {
+      success: true,
+      removedCount,
+    };
+  },
+});
+
+/**
+ * ==================================================
+ * ADD TO CART
+ * ==================================================
+ */
 
 export const addItem = mutation({
   args: {
@@ -98,11 +141,11 @@ export const addItem = mutation({
   },
 });
 
-/*
-==================================================
-INCREASE QUANTITY
-==================================================
-*/
+/**
+ * ==================================================
+ * INCREASE QUANTITY
+ * ==================================================
+ */
 
 export const increaseQuantity = mutation({
   args: {
@@ -143,11 +186,11 @@ export const increaseQuantity = mutation({
   },
 });
 
-/*
-==================================================
-DECREASE QUANTITY
-==================================================
-*/
+/**
+ * ==================================================
+ * DECREASE QUANTITY
+ * ==================================================
+ */
 
 export const decreaseQuantity = mutation({
   args: {
@@ -169,6 +212,7 @@ export const decreaseQuantity = mutation({
 
     if (cartItem.quantity <= 1) {
       await ctx.db.delete(cartItem._id);
+
       return true;
     }
 
@@ -181,11 +225,11 @@ export const decreaseQuantity = mutation({
   },
 });
 
-/*
-==================================================
-REMOVE FROM CART
-==================================================
-*/
+/**
+ * ==================================================
+ * REMOVE FROM CART
+ * ==================================================
+ */
 
 export const removeItem = mutation({
   args: {
@@ -211,11 +255,11 @@ export const removeItem = mutation({
   },
 });
 
-/*
-==================================================
-CLEAR CART
-==================================================
-*/
+/**
+ * ==================================================
+ * CLEAR CART
+ * ==================================================
+ */
 
 export const clearCart = mutation({
   args: {

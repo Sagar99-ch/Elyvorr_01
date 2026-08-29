@@ -1,11 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/*
-==================================================
-GENERATE ORDER NUMBER
-==================================================
-*/
+/**
+ * ==================================================
+ * GENERATE ORDER NUMBER
+ * ==================================================
+ */
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString().slice(-8);
@@ -15,11 +15,11 @@ function generateOrderNumber() {
   return `ELY-${timestamp}-${random}`;
 }
 
-/*
-==================================================
-CREATE PENDING ORDER
-==================================================
-*/
+/**
+ * ==================================================
+ * CREATE PENDING ORDER
+ * ==================================================
+ */
 
 export const createPendingOrder = mutation({
   args: {
@@ -27,11 +27,11 @@ export const createPendingOrder = mutation({
   },
 
   handler: async (ctx, args) => {
-    /*
-    ================================================
-    GET ADDRESS
-    ================================================
-    */
+    /**
+     * ================================================
+     * GET ADDRESS
+     * ================================================
+     */
 
     const address = await ctx.db
       .query("addresses")
@@ -42,11 +42,11 @@ export const createPendingOrder = mutation({
       throw new Error("Delivery address is required before placing the order.");
     }
 
-    /*
-    ================================================
-    GET CART
-    ================================================
-    */
+    /**
+     * ================================================
+     * GET CART
+     * ================================================
+     */
 
     const cartItems = await ctx.db
       .query("cart")
@@ -57,66 +57,202 @@ export const createPendingOrder = mutation({
       throw new Error("Your shopping bag is empty.");
     }
 
-    /*
-    ================================================
-    GET PRODUCTS + BUILD ORDER ITEMS
-    ================================================
-    */
+    /**
+     * ================================================
+     * GET PRODUCTS + BUILD ORDER ITEMS
+     * ================================================
+     */
 
     const orderItems = [];
 
     let subtotal = 0;
 
+    let discount = 0;
+
+    let removedInvalidItem = false;
+
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
 
+      /**
+       * ----------------------------------------------
+       * PRODUCT DOES NOT EXIST
+       * ----------------------------------------------
+       */
+
       if (!product) {
-        throw new Error("One of the products in your bag no longer exists.");
+        await ctx.db.delete(cartItem._id);
+
+        removedInvalidItem = true;
+
+        continue;
       }
 
+      /**
+       * ----------------------------------------------
+       * PRODUCT INACTIVE
+       * ----------------------------------------------
+       */
+
       if (!product.isActive) {
-        throw new Error(`${product.name} is currently unavailable.`);
+        await ctx.db.delete(cartItem._id);
+
+        removedInvalidItem = true;
+
+        continue;
       }
+
+      /**
+       * ----------------------------------------------
+       * STOCK CHECK
+       * ----------------------------------------------
+       */
 
       if (product.stock < cartItem.quantity) {
         throw new Error(`${product.name} does not have enough stock.`);
       }
 
-      subtotal += product.price * cartItem.quantity;
+      /**
+       * ----------------------------------------------
+       * SELLING PRICE
+       * ----------------------------------------------
+       */
+
+      const sellingPrice = Number(product.price || 0);
+
+      const quantity = Number(cartItem.quantity || 0);
+
+      /**
+       * ----------------------------------------------
+       * SUBTOTAL
+       *
+       * Subtotal is the actual selling price.
+       *
+       * Example:
+       * MRP       = 399
+       * Sale      = 299
+       * Quantity  = 1
+       *
+       * Subtotal = 299
+       * ----------------------------------------------
+       */
+
+      subtotal += sellingPrice * quantity;
+
+      /**
+       * ----------------------------------------------
+       * LIVE DISCOUNT
+       *
+       * Example:
+       * oldPrice = 399
+       * price    = 299
+       *
+       * discount = 100
+       * ----------------------------------------------
+       */
+
+      const oldPrice = Number(product.oldPrice || 0);
+
+      if (oldPrice > sellingPrice) {
+        discount += (oldPrice - sellingPrice) * quantity;
+      }
+
+      /**
+       * ----------------------------------------------
+       * ORDER ITEM
+       *
+       * IMPORTANT:
+       * oldPrice intentionally NOT stored here
+       * because orders.items schema does not allow it.
+       * ----------------------------------------------
+       */
 
       orderItems.push({
         productId: product._id,
 
         name: product.name,
+
         volume: product.volume,
 
-        price: product.price,
+        price: sellingPrice,
 
-        quantity: cartItem.quantity,
+        quantity: quantity,
 
         image: product.image,
       });
     }
 
-    /*
-    ================================================
-    ORDER TOTALS
-    ================================================
-    */
+    /**
+     * ================================================
+     * HANDLE REMOVED PRODUCTS
+     * ================================================
+     */
 
-    const discount = 0;
+    if (removedInvalidItem && orderItems.length === 0) {
+      throw new Error(
+        "All products in your bag are no longer available. They have been removed from your bag. Please add available products and try again."
+      );
+    }
 
-    const shipping = 99;
+    /**
+     * ================================================
+     * IF SOME PRODUCTS WERE REMOVED
+     * ================================================
+     *
+     * Do not create an order with a changed cart
+     * silently.
+     *
+     * User should review the updated bag first.
+     * ================================================
+     */
 
-    const gst = Math.round(subtotal * 0.08);
+    if (removedInvalidItem) {
+      throw new Error(
+        "One or more products in your bag are no longer available. They were removed from your bag. Please review your bag and try again."
+      );
+    }
 
-    const total = subtotal + shipping + gst - discount;
+    /**
+     * ================================================
+     * ORDER TOTALS
+     * ================================================
+     *
+     * IMPORTANT:
+     *
+     * subtotal = actual selling price
+     * discount = MRP saving for display
+     * shipping = ₹1
+     * GST      = ₹0
+     *
+     * Customer pays:
+     *
+     * subtotal + shipping
+     *
+     * NOT:
+     * subtotal - discount
+     *
+     * Example:
+     *
+     * MRP       ₹399
+     * Sale      ₹299
+     * Discount  ₹100
+     * Shipping  ₹1
+     *
+     * Final     ₹300
+     * ================================================
+     */
 
-    /*
-    ================================================
-    CREATE ORDER
-    ================================================
-    */
+    const shipping = 1;
+
+    const gst = 0;
+
+    const total = subtotal + shipping + gst;
+
+    /**
+     * ================================================
+     * CREATE ORDER
+     * ================================================
+     */
 
     const orderNumber = generateOrderNumber();
 
@@ -128,36 +264,57 @@ export const createPendingOrder = mutation({
       orderNumber,
 
       customerName: address.fullName,
+
       mobile: address.mobile,
 
       address: address.address,
+
       city: address.city,
+
       state: address.state,
+
       pincode: address.pincode,
 
       items: orderItems,
 
       subtotal,
+
       discount,
+
       shipping,
+
       gst,
+
       total,
 
       paymentStatus: "pending",
+
       orderStatus: "pending",
 
       createdAt: now,
+
       updatedAt: now,
     });
 
+    /**
+     * ================================================
+     * RETURN ORDER DATA
+     * ================================================
+     */
+
     return {
       orderId,
+
       orderNumber,
 
       subtotal,
+
       discount,
+
       shipping,
+
       gst,
+
       total,
 
       itemCount: orderItems.reduce((count, item) => count + item.quantity, 0),
@@ -165,11 +322,11 @@ export const createPendingOrder = mutation({
   },
 });
 
-/*
-==================================================
-GET ORDER BY ORDER NUMBER
-==================================================
-*/
+/**
+ * ==================================================
+ * GET ORDER BY ORDER NUMBER
+ * ==================================================
+ */
 
 export const getOrderByNumber = query({
   args: {
@@ -186,9 +343,11 @@ export const getOrderByNumber = query({
   },
 });
 
-// =====================================================
-// GET ORDER BY ID
-// =====================================================
+/**
+ * ==================================================
+ * GET ORDER BY ID
+ * ==================================================
+ */
 
 export const getOrderById = query({
   args: {
@@ -199,11 +358,12 @@ export const getOrderById = query({
     return await ctx.db.get(args.orderId);
   },
 });
-/*
-==================================================
-GET ORDER BY SESSION
-==================================================
-*/
+
+/**
+ * ==================================================
+ * GET ORDERS BY SESSION
+ * ==================================================
+ */
 
 export const getOrdersBySession = query({
   args: {
@@ -219,15 +379,16 @@ export const getOrdersBySession = query({
   },
 });
 
-/*
-==================================================
-MARK ORDER AS PAID
-==================================================
-*/
+/**
+ * ==================================================
+ * MARK ORDER AS PAID
+ * ==================================================
+ */
 
 export const markOrderPaid = mutation({
   args: {
     orderId: v.id("orders"),
+
     paymentId: v.string(),
   },
 
@@ -241,14 +402,18 @@ export const markOrderPaid = mutation({
     if (order.paymentStatus === "paid") {
       return {
         success: true,
+
         message: "Order is already paid.",
       };
     }
 
     await ctx.db.patch(args.orderId, {
       paymentStatus: "paid",
+
       orderStatus: "confirmed",
+
       paymentId: args.paymentId,
+
       updatedAt: Date.now(),
     });
 
@@ -258,11 +423,11 @@ export const markOrderPaid = mutation({
   },
 });
 
-/*
-==================================================
-CANCEL ORDER
-==================================================
-*/
+/**
+ * ==================================================
+ * CANCEL ORDER
+ * ==================================================
+ */
 
 export const cancelOrder = mutation({
   args: {
@@ -282,7 +447,9 @@ export const cancelOrder = mutation({
 
     await ctx.db.patch(args.orderId, {
       paymentStatus: "cancelled",
+
       orderStatus: "cancelled",
+
       updatedAt: Date.now(),
     });
 
@@ -292,9 +459,11 @@ export const cancelOrder = mutation({
   },
 });
 
-// =====================================================
-// ADMIN — GET ALL ORDERS
-// =====================================================
+/**
+ * ==================================================
+ * ADMIN — GET ALL ORDERS
+ * ==================================================
+ */
 
 export const getAllOrders = query({
   args: {},
@@ -304,13 +473,16 @@ export const getAllOrders = query({
   },
 });
 
-// =====================================================
-// ADMIN — UPDATE ORDER STATUS
-// =====================================================
+/**
+ * ==================================================
+ * ADMIN — UPDATE ORDER STATUS
+ * ==================================================
+ */
 
 export const updateOrderStatus = mutation({
   args: {
     orderId: v.id("orders"),
+
     orderStatus: v.string(),
   },
 
@@ -345,9 +517,12 @@ export const updateOrderStatus = mutation({
     };
   },
 });
-// =====================================================
-// ADMIN — DELETE ORDER
-// =====================================================
+
+/**
+ * ==================================================
+ * ADMIN — DELETE ORDER
+ * ==================================================
+ */
 
 export const deleteOrder = mutation({
   args: {
@@ -365,6 +540,7 @@ export const deleteOrder = mutation({
 
     return {
       success: true,
+
       message: "Order deleted successfully.",
     };
   },

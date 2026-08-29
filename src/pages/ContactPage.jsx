@@ -194,7 +194,7 @@ function ContactPage() {
                     Email
                   </p>
 
-                  <p className="mt-1 text-sm">support@elyvorr.com</p>
+                  <p className="mt-1 text-sm">elyvorrperfume@gmail.com</p>
                 </div>
               </div>
 
@@ -210,7 +210,7 @@ function ContactPage() {
                     Phone
                   </p>
 
-                  <p className="mt-1 text-sm">+91 XXXXX XXXXX</p>
+                  <p className="mt-1 text-sm">+91 95220 42144</p>
                 </div>
               </div>
 
@@ -226,7 +226,7 @@ function ContactPage() {
                     Location
                   </p>
 
-                  <p className="mt-1 text-sm">India</p>
+                  <p className="mt-1 text-sm">Ujjain, Madhya Pradesh</p>
                 </div>
               </div>
             </div>

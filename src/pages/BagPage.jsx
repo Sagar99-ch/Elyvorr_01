@@ -1,9 +1,18 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
 import { useCart } from "../context/CartContext";
 
 function BagPage() {
   const navigate = useNavigate();
+
+  // =====================================================
+  // CART
+  // =====================================================
 
   const {
     cartItems,
@@ -13,15 +22,113 @@ function BagPage() {
     subtotal,
   } = useCart();
 
-  const shipping = subtotal === 0 ? 0 : 99;
+  // =====================================================
+  // PRODUCTS
+  //
+  // We fetch products directly so oldPrice is always
+  // available for live discount calculation.
+  // =====================================================
 
-  const gst = Math.round(subtotal * 0.08);
+  const products = useQuery(api.products.getAll, {
+    includeInactive: true,
+  });
 
-  const total = subtotal + shipping + gst;
+  // =====================================================
+  // ENRICH CART
+  //
+  // Cart item -> Product
+  // Product gives us oldPrice.
+  // =====================================================
 
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const enrichedCartItems = useMemo(() => {
+    if (!cartItems || !products) {
+      return [];
+    }
 
-  /* ================= BUY NOW ================= */
+    return cartItems.map((item) => {
+      const product = products.find(
+        (p) => p._id === item.productId || p._id === item.id
+      );
+
+      return {
+        ...item,
+
+        oldPrice: item.oldPrice ?? product?.oldPrice ?? 0,
+
+        name: item.name ?? product?.name ?? "Product",
+
+        volume: item.volume ?? product?.volume ?? "",
+
+        image: item.image ?? product?.image ?? "",
+
+        reviews: item.reviews ?? product?.reviews ?? 0,
+      };
+    });
+  }, [cartItems, products]);
+
+  // =====================================================
+  // DISCOUNT
+  //
+  // Example:
+  //
+  // Old Price = ₹399
+  // Selling   = ₹299
+  // Discount  = ₹100
+  //
+  // Quantity 2
+  // Discount  = ₹200
+  // =====================================================
+
+  const discount = useMemo(() => {
+    return enrichedCartItems.reduce((total, item) => {
+      const oldPrice = Number(item.oldPrice || 0);
+      const currentPrice = Number(item.price || 0);
+      const quantity = Number(item.quantity || 0);
+
+      if (oldPrice > currentPrice) {
+        return total + (oldPrice - currentPrice) * quantity;
+      }
+
+      return total;
+    }, 0);
+  }, [enrichedCartItems]);
+
+  // =====================================================
+  // SHIPPING
+  //
+  // FIXED ₹1 SHIPPING
+  // =====================================================
+
+  const shipping = subtotal > 0 ? 1 : 0;
+
+  // =====================================================
+  // GST
+  //
+  // GST REMOVED
+  // =====================================================
+
+  const gst = 0;
+
+  // =====================================================
+  // GRAND TOTAL
+  //
+  // subtotal - discount + shipping
+  // =====================================================
+
+  const total = Math.max(0, subtotal - discount + shipping);
+
+  // =====================================================
+  // TOTAL ITEMS
+  // =====================================================
+
+  const totalItems = cartItems.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0
+  );
+
+  // =====================================================
+  // BUY NOW
+  // =====================================================
 
   const handleBuyNow = () => {
     if (cartItems.length === 0) {
@@ -33,21 +140,36 @@ function BagPage() {
     navigate("/checkout/address");
   };
 
+  // =====================================================
+  // LOADING
+  // =====================================================
+
+  if (products === undefined) {
+    return (
+      <main className="min-h-screen bg-[#FAF8F4] px-4 py-8">
+        <div className="mx-auto max-w-[1450px]">
+          <div className="h-10 w-48 animate-pulse rounded bg-[#EEE8DE]" />
+
+          <div className="mt-8 h-[500px] animate-pulse rounded-[24px] bg-[#EEE8DE]" />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#FAF8F4] px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
       <div className="mx-auto max-w-[1450px]">
-        {/* ================= HEADER ================= */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <div className="mb-8">
-          {/* BACK TO SHOPPING */}
-
           <button
             type="button"
-            onClick={() => navigate("/shop")}
+            onClick={() => navigate("/collection")}
             className="mb-7 flex items-center gap-2 text-sm font-medium text-[#666] transition hover:text-[#C9A96E]"
           >
             <ArrowLeft size={18} />
-
             <span>Back to Shopping</span>
           </button>
 
@@ -64,7 +186,9 @@ function BagPage() {
           </p>
         </div>
 
-        {/* ================= EMPTY BAG ================= */}
+        {/* =================================================
+            EMPTY BAG
+        ================================================= */}
 
         {cartItems.length === 0 ? (
           <div className="flex min-h-[550px] flex-col items-center justify-center rounded-[28px] border border-[#E7E1D7] bg-white text-center">
@@ -87,7 +211,7 @@ function BagPage() {
 
             <button
               type="button"
-              onClick={() => navigate("/shop")}
+              onClick={() => navigate("/collection")}
               className="mt-8 rounded-xl bg-[#181818] px-8 py-4 text-xs font-semibold uppercase tracking-[2px] text-white transition hover:bg-[#C9A96E]"
             >
               Continue Shopping
@@ -95,7 +219,9 @@ function BagPage() {
           </div>
         ) : (
           <div className="grid gap-7 lg:grid-cols-[1fr_420px]">
-            {/* ================= LEFT ================= */}
+            {/* =================================================
+                LEFT
+            ================================================= */}
 
             <section>
               {/* DELIVERY */}
@@ -117,11 +243,11 @@ function BagPage() {
               {/* PRODUCTS */}
 
               <div className="mt-5 overflow-hidden rounded-[24px] border border-[#E7E1D7] bg-white">
-                {cartItems.map((product, index) => (
+                {enrichedCartItems.map((product, index) => (
                   <article
                     key={product.id}
                     className={`p-5 sm:p-7 ${
-                      index !== cartItems.length - 1
+                      index !== enrichedCartItems.length - 1
                         ? "border-b border-[#ECE7DF]"
                         : ""
                     }`}
@@ -182,20 +308,29 @@ function BagPage() {
 
                           <div className="mt-4 flex flex-wrap items-center gap-3">
                             <span className="text-3xl font-bold">
-                              ₹{product.price.toLocaleString("en-IN")}
+                              ₹
+                              {Number(product.price || 0).toLocaleString(
+                                "en-IN"
+                              )}
                             </span>
 
-                            {product.oldPrice && (
+                            {Number(product.oldPrice || 0) >
+                              Number(product.price || 0) && (
                               <span className="text-sm text-[#999] line-through">
-                                ₹{product.oldPrice.toLocaleString("en-IN")}
+                                ₹
+                                {Number(product.oldPrice).toLocaleString(
+                                  "en-IN"
+                                )}
                               </span>
                             )}
 
-                            {product.oldPrice && (
+                            {Number(product.oldPrice || 0) >
+                              Number(product.price || 0) && (
                               <span className="rounded-full bg-[#EAF8EC] px-3 py-1 text-xs font-semibold text-[#2F8F46]">
                                 SAVE ₹
                                 {(
-                                  product.oldPrice - product.price
+                                  Number(product.oldPrice) -
+                                  Number(product.price)
                                 ).toLocaleString("en-IN")}
                               </span>
                             )}
@@ -233,9 +368,10 @@ function BagPage() {
 
                           <span className="text-xl font-semibold">
                             ₹
-                            {(product.price * product.quantity).toLocaleString(
-                              "en-IN"
-                            )}
+                            {(
+                              Number(product.price || 0) *
+                              Number(product.quantity || 0)
+                            ).toLocaleString("en-IN")}
                           </span>
                         </div>
                       </div>
@@ -256,11 +392,9 @@ function BagPage() {
                 </div>
 
                 <div className="rounded-2xl border border-[#E7E1D7] bg-white p-5">
-                  <p className="font-semibold">↻ Easy Returns</p>
+                  <p className="font-semibold">Fast Delivery</p>
 
-                  <p className="mt-1 text-xs text-[#888]">
-                    7 days return policy
-                  </p>
+                  <p className="mt-1 text-xs text-[#888]">2 - 4 days</p>
                 </div>
 
                 <div className="rounded-2xl border border-[#E7E1D7] bg-white p-5">
@@ -273,7 +407,9 @@ function BagPage() {
               </div>
             </section>
 
-            {/* ================= RIGHT SUMMARY ================= */}
+            {/* =================================================
+                RIGHT SUMMARY
+            ================================================= */}
 
             <aside className="h-fit rounded-[24px] border border-[#E7E1D7] bg-white lg:sticky lg:top-8">
               <div className="border-b border-[#ECE7DF] p-7">
@@ -287,7 +423,9 @@ function BagPage() {
               </div>
 
               <div className="p-7">
-                <div className="space-y-4 text-sm">
+                <div className="space-y-5 text-base">
+                  {/* SUBTOTAL */}
+
                   <div className="flex justify-between">
                     <span className="text-[#777]">Subtotal</span>
 
@@ -296,30 +434,33 @@ function BagPage() {
                     </span>
                   </div>
 
+                  {/* DISCOUNT */}
+
                   <div className="flex justify-between">
                     <span className="text-[#777]">Discount</span>
 
-                    <span className="font-semibold text-[#2F8F46]">-₹0</span>
+                    <span className="font-semibold text-[#2F8F46]">
+                      -₹
+                      {discount.toLocaleString("en-IN")}
+                    </span>
                   </div>
+
+                  {/* SHIPPING */}
 
                   <div className="flex justify-between">
                     <span className="text-[#777]">Shipping</span>
 
                     <span className="font-semibold">₹{shipping}</span>
                   </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-[#777]">GST</span>
-
-                    <span className="font-semibold">
-                      ₹{gst.toLocaleString("en-IN")}
-                    </span>
-                  </div>
                 </div>
 
-                <div className="my-6 border-t border-[#ECE7DF]" />
+                {/* DIVIDER */}
 
-                <p className="text-xs uppercase tracking-[2px] text-[#999]">
+                <div className="my-7 border-t border-[#ECE7DF]" />
+
+                {/* GRAND TOTAL */}
+
+                <p className="text-xs uppercase tracking-[3px] text-[#999]">
                   Grand Total
                 </p>
 
@@ -327,7 +468,7 @@ function BagPage() {
                   ₹{total.toLocaleString("en-IN")}
                 </h3>
 
-                {/* ================= BUY NOW ================= */}
+                {/* BUY NOW */}
 
                 <button
                   type="button"
