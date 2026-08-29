@@ -1,21 +1,45 @@
 import { createContext, useContext, useMemo, useState } from "react";
+
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 const CartContext = createContext(null);
 
+// =====================================================
+// CREATE / GET UNIQUE BROWSER SESSION
+// =====================================================
+
 function getSessionId() {
   const storageKey = "elyvorr_session_id";
 
-  let sessionId = localStorage.getItem(storageKey);
+  try {
+    let sessionId = localStorage.getItem(storageKey);
 
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    localStorage.setItem(storageKey, sessionId);
+    // Validate existing ID
+    if (sessionId && typeof sessionId === "string" && sessionId.length >= 20) {
+      return sessionId;
+    }
+
+    // Create a completely new browser session
+    const newSessionId = crypto.randomUUID();
+
+    localStorage.setItem(storageKey, newSessionId);
+
+    return newSessionId;
+  } catch (error) {
+    // Fallback if localStorage is unavailable
+    console.warn(
+      "ELYVORR: localStorage unavailable. Using temporary session.",
+      error
+    );
+
+    return crypto.randomUUID();
   }
-
-  return sessionId;
 }
+
+// =====================================================
+// CART PROVIDER
+// =====================================================
 
 export function CartProvider({ children }) {
   // =====================================================
@@ -23,6 +47,9 @@ export function CartProvider({ children }) {
   // =====================================================
 
   const [sessionId] = useState(() => getSessionId());
+
+  // IMPORTANT DEBUG
+  console.log("ELYVORR CART SESSION:", sessionId);
 
   // =====================================================
   // CART
@@ -34,7 +61,6 @@ export function CartProvider({ children }) {
 
   // =====================================================
   // PRODUCTS
-  // Used to get oldPrice for discount calculation
   // =====================================================
 
   const products = useQuery(api.products.getAll, {
@@ -57,17 +83,24 @@ export function CartProvider({ children }) {
 
   const addToBag = async (product) => {
     if (!product?.id) {
-      console.error("Product ID is missing");
+      console.error("ELYVORR: Product ID is missing");
       return;
     }
 
     try {
+      console.log("ELYVORR: Adding product to session:", {
+        sessionId,
+        productId: product.id,
+      });
+
       await addItemMutation({
         sessionId,
         productId: product.id,
       });
     } catch (error) {
-      console.error("Failed to add product to bag:", error);
+      console.error("ELYVORR: Failed to add product to bag:", error);
+
+      throw error;
     }
   };
 
@@ -82,7 +115,9 @@ export function CartProvider({ children }) {
         productId,
       });
     } catch (error) {
-      console.error("Failed to increase quantity:", error);
+      console.error("ELYVORR: Failed to increase quantity:", error);
+
+      throw error;
     }
   };
 
@@ -97,7 +132,9 @@ export function CartProvider({ children }) {
         productId,
       });
     } catch (error) {
-      console.error("Failed to decrease quantity:", error);
+      console.error("ELYVORR: Failed to decrease quantity:", error);
+
+      throw error;
     }
   };
 
@@ -112,7 +149,9 @@ export function CartProvider({ children }) {
         productId,
       });
     } catch (error) {
-      console.error("Failed to remove product:", error);
+      console.error("ELYVORR: Failed to remove product:", error);
+
+      throw error;
     }
   };
 
@@ -126,17 +165,14 @@ export function CartProvider({ children }) {
         sessionId,
       });
     } catch (error) {
-      console.error("Failed to clear bag:", error);
+      console.error("ELYVORR: Failed to clear bag:", error);
+
+      throw error;
     }
   };
 
   // =====================================================
   // ENRICH CART ITEMS
-  //
-  // Cart API gives us price/quantity.
-  // Products API gives us oldPrice.
-  //
-  // We combine both here.
   // =====================================================
 
   const enrichedCartItems = useMemo(() => {
@@ -152,14 +188,14 @@ export function CartProvider({ children }) {
       return {
         ...item,
 
-        // Product information
         name: item.name ?? product?.name,
+
         volume: item.volume ?? product?.volume,
+
         image: item.image ?? product?.image,
+
         reviews: item.reviews ?? product?.reviews,
 
-        // IMPORTANT:
-        // Get oldPrice from product if cart item doesn't have it
         oldPrice: item.oldPrice ?? product?.oldPrice,
       };
     });
@@ -178,9 +214,6 @@ export function CartProvider({ children }) {
 
   // =====================================================
   // SUBTOTAL
-  //
-  // Example:
-  // ₹299 × 2 = ₹598
   // =====================================================
 
   const subtotal = useMemo(() => {
@@ -193,20 +226,14 @@ export function CartProvider({ children }) {
 
   // =====================================================
   // DISCOUNT
-  //
-  // Example:
-  // oldPrice = ₹399
-  // price    = ₹299
-  // saving   = ₹100
-  //
-  // quantity 2
-  // discount = ₹200
   // =====================================================
 
   const discount = useMemo(() => {
     return enrichedCartItems.reduce((total, item) => {
       const oldPrice = Number(item.oldPrice || 0);
+
       const currentPrice = Number(item.price || 0);
+
       const quantity = Number(item.quantity || 0);
 
       const savingPerItem =
@@ -232,14 +259,23 @@ export function CartProvider({ children }) {
     isLoading,
 
     addToBag,
+
     increaseQuantity,
+
     decreaseQuantity,
+
     removeFromBag,
+
     clearBag,
 
     totalItems,
+
     subtotal,
+
     discount,
+
+    // Useful for debugging / checkout
+    sessionId,
   };
 
   // =====================================================

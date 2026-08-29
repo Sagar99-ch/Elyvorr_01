@@ -23,24 +23,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../convex/_generated/api";
 import Layout from "../components/layout/Layout";
-
-// =====================================================
-// SESSION
-// =====================================================
-
-function getSessionId() {
-  const storageKey = "elyvorr_session_id";
-
-  let sessionId = localStorage.getItem(storageKey);
-
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-
-    localStorage.setItem(storageKey, sessionId);
-  }
-
-  return sessionId;
-}
+import { useCart } from "../context/CartContext";
 
 // =====================================================
 // PRODUCT DETAILS PAGE
@@ -51,19 +34,18 @@ function ProductDetailsPage() {
 
   const { id } = useParams();
 
-  const [sessionId] = useState(() => getSessionId());
+  // ===================================================
+  // CART CONTEXT
+  // Single source of truth for the browser session/cart
+  // ===================================================
+
+  const { addToBag } = useCart();
 
   // ===================================================
   // PRODUCT
   // ===================================================
 
   const product = useQuery(api.products.getById, id ? { id } : "skip");
-
-  // ===================================================
-  // CART
-  // ===================================================
-
-  const addToCart = useMutation(api.cart.addItem);
 
   // ===================================================
   // STATE
@@ -185,9 +167,8 @@ function ProductDetailsPage() {
     setMessage("");
 
     try {
-      await addToCart({
-        sessionId,
-        productId: product._id,
+      await addToBag({
+        id: product._id,
       });
 
       setMessage("Added to your bag successfully.");
@@ -213,9 +194,8 @@ function ProductDetailsPage() {
     setMessage("");
 
     try {
-      await addToCart({
-        sessionId,
-        productId: product._id,
+      await addToBag({
+        id: product._id,
       });
 
       navigate("/checkout/address");
