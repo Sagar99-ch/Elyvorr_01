@@ -332,6 +332,24 @@ function PaymentPage() {
         handler: async function (response) {
           try {
             setPaymentError("");
+            setPaymentLoading(true);
+
+            console.log("ELYVORR: Razorpay payment success:", response);
+
+            // =================================================
+            // CLOSE RAZORPAY IMMEDIATELY
+            // Important for mobile / UPI return flow
+            // =================================================
+
+            try {
+              razorpay.close();
+            } catch (closeError) {
+              console.warn("ELYVORR: Razorpay close warning:", closeError);
+            }
+
+            // =================================================
+            // VERIFY PAYMENT ON CONVEX
+            // =================================================
 
             const verification = await verifyPayment({
               orderId: pendingOrder.orderId,
@@ -342,6 +360,8 @@ function PaymentPage() {
 
               razorpaySignature: response.razorpay_signature,
             });
+
+            console.log("ELYVORR: Payment verification result:", verification);
 
             if (!verification?.success) {
               throw new Error("Payment verification failed.");
@@ -368,19 +388,23 @@ function PaymentPage() {
 
             // =================================================
             // SUCCESS PAGE
+            // replace=true prevents returning to payment page
             // =================================================
 
             navigate(
               `/order-success?order=${encodeURIComponent(
                 pendingOrder.orderNumber
-              )}`
+              )}`,
+              {
+                replace: true,
+              }
             );
           } catch (error) {
-            console.error("Payment verification error:", error);
-
-            setPaymentError(error?.message || "Payment verification failed.");
+            console.error("ELYVORR: Payment verification error:", error);
 
             setPaymentLoading(false);
+
+            setPaymentError(error?.message || "Payment verification failed.");
           }
         },
       };
@@ -397,6 +421,15 @@ function PaymentPage() {
 
       razorpay.on("payment.failed", (response) => {
         console.error("Razorpay payment failed:", response);
+
+        try {
+          razorpay.close();
+        } catch (closeError) {
+          console.warn(
+            "ELYVORR: Razorpay close warning after failure:",
+            closeError
+          );
+        }
 
         setPaymentError(
           response?.error?.description || "Payment failed. Please try again."
