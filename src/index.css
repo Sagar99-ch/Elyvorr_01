@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
+/* =====================================================
+   ROOT VARIABLES
+===================================================== */
 
-/* Reset — ab layer ke andar */
+:root {
+  --background: #faf8f4;
+  --surface: #ffffff;
+  --primary: #c9a96e;
+  --primary-dark: #b68d56;
+  --heading: #181818;
+  --text: #666666;
+  --border: #ece7df;
+}
+
+/* =====================================================
+   RESET
+===================================================== */
+
 @layer base {
   *,
   *::before,
@@ -54,15 +69,9 @@
   }
 }
 
-:root {
-  --background: #faf8f4;
-  --surface: #ffffff;
-  --primary: #c9a96e;
-  --primary-dark: #b68d56;
-  --heading: #181818;
-  --text: #666666;
-  --border: #ece7df;
-}
+/* =====================================================
+   SCROLLBAR
+===================================================== */
 
 ::-webkit-scrollbar {
   width: 8px;

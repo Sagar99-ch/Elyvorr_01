@@ -279,7 +279,7 @@ function ProductDetailsPage() {
                 className="
                   grid
                   gap-4
-                  sm:grid-cols-[110px_minmax(0,1fr)]
+                  sm:grid-cols-[90px_minmax(0,1fr)]
                   sm:gap-5
                 "
               >
@@ -311,7 +311,7 @@ function ProductDetailsPage() {
                       <img
                         src={image}
                         alt={`${product.name} view ${index + 1}`}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain p-4 sm:p-5 lg:p-6"
                       />
                     </button>
                   ))}
@@ -319,12 +319,12 @@ function ProductDetailsPage() {
 
                 {/* MAIN IMAGE */}
 
-                <div className="relative overflow-hidden rounded-[28px] border border-[#E5DED3] bg-[#F2EDE4]">
-                  <div className="aspect-[4/5] w-full">
+                <div className="relative mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border border-[#E5DED3] bg-[#F2EDE4]">
+                  <div className="aspect-[4/5] max-h-[560px] w-full">
                     <img
                       src={galleryImages[activeImage] || product.image}
                       alt={product.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain p-6 sm:p-8 lg:p-10"
                     />
                   </div>
 
@@ -385,35 +385,6 @@ function ProductDetailsPage() {
                       </button>
                     </>
                   )}
-                </div>
-              </div>
-
-              {/* =================================================
-                  FRAGRANCE DESCRIPTION
-              ================================================= */}
-
-              <div className="mt-6 grid gap-5 rounded-[24px] border border-[#E5DED3] bg-white p-6 sm:p-8 md:grid-cols-[1fr_1.5fr]">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[3px] text-[#C9A96E]">
-                    The Fragrance
-                  </p>
-
-                  <h2 className="mt-2 font-serif text-2xl font-semibold">
-                    About this fragrance
-                  </h2>
-
-                  <p className="mt-3 text-sm leading-7 text-[#777]">
-                    {product.name} is crafted for those who appreciate a refined
-                    and memorable fragrance experience.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 border-t border-[#ECE7DF] pt-5 md:border-l md:border-t-0 md:pl-7 md:pt-0">
-                  <Note title="Top Notes" value="Fresh & Citrus" />
-
-                  <Note title="Heart Notes" value="Floral & Aromatic" />
-
-                  <Note title="Base Notes" value="Warm & Woody" />
                 </div>
               </div>
             </section>

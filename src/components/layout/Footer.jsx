@@ -1,5 +1,5 @@
-import { Mail, MapPin, Phone } from "lucide-react";
-import { FaFacebookF, FaInstagram, FaLinkedinIn } from "react-icons/fa";
+import { Mail, MapPin } from "lucide-react";
+import { FaInstagram } from "react-icons/fa";
 import { NavLink } from "react-router-dom";
 
 function Footer() {
@@ -7,10 +7,14 @@ function Footer() {
     <footer className="mt-12 bg-[#181818] text-white sm:mt-24">
       <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-20 lg:px-6">
         {/* =================================================
-            BRAND
+            MAIN FOOTER
         ================================================= */}
 
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+          {/* =================================================
+              BRAND
+          ================================================= */}
+
           <div className="lg:col-span-1">
             <h2 className="font-serif text-3xl font-semibold tracking-[3px] text-[#C9A96E] sm:text-4xl sm:tracking-[4px]">
               ELYVORR
@@ -22,28 +26,17 @@ function Footer() {
             </p>
 
             {/* SOCIAL */}
-
             <div className="mt-6 flex gap-3 sm:mt-8 sm:gap-4">
-              <button
-                type="button"
+              {/* Instagram */}
+              <a
+                href="https://www.instagram.com/elyvorr_perfume"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="ELYVORR Instagram"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
               >
-                <FaFacebookF size={14} />
-              </button>
-
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
-              >
-                <FaInstagram size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
-              >
-                <FaLinkedinIn size={16} />
-              </button>
+                <FaInstagram size={17} />
+              </a>
             </div>
           </div>
 
@@ -128,32 +121,43 @@ function Footer() {
             </h3>
 
             <div className="space-y-4 text-xs text-gray-400 sm:space-y-5 sm:text-sm">
+              {/* Address */}
               <div className="flex gap-3">
                 <MapPin
                   size={17}
                   className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
                 />
 
-                <span>Indore, Madhya Pradesh</span>
+                <span>Ujjain, Madhya Pradesh</span>
               </div>
 
-              <div className="flex gap-3">
-                <Phone
-                  size={17}
-                  className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
-                />
-
-                <span>+91 98765 43210</span>
-              </div>
-
-              <div className="flex gap-3">
+              {/* Email */}
+              <a
+                href="mailto:elyvorrperfume@gmail.com"
+                className="flex gap-3 transition hover:text-[#C9A96E]"
+              >
                 <Mail
                   size={17}
                   className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
                 />
 
-                <span className="break-all">support@elyvorr.com</span>
-              </div>
+                <span className="break-all">elyvorrperfume@gmail.com</span>
+              </a>
+
+              {/* Instagram */}
+              <a
+                href="https://www.instagram.com/elyvorr_perfume"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex gap-3 transition hover:text-[#C9A96E]"
+              >
+                <FaInstagram
+                  size={17}
+                  className="mt-0.5 flex-shrink-0 text-[#C9A96E]"
+                />
+
+                <span>@elyvorr_perfume</span>
+              </a>
             </div>
           </div>
         </div>
