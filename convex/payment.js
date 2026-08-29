@@ -10,6 +10,7 @@ import crypto from "crypto";
 // =====================================================
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
 // =====================================================
@@ -24,9 +25,9 @@ export const createRazorpayOrder = action({
   },
 
   handler: async (ctx, args) => {
-    // =============================================
-    // CHECK RAZORPAY CONFIG
-    // =============================================
+    // =================================================
+    // CHECK CONFIG
+    // =================================================
 
     if (!RAZORPAY_KEY_ID) {
       throw new Error("RAZORPAY_KEY_ID is not configured.");
@@ -36,9 +37,9 @@ export const createRazorpayOrder = action({
       throw new Error("RAZORPAY_KEY_SECRET is not configured.");
     }
 
-    // =============================================
-    // GET REAL ORDER FROM DATABASE
-    // =============================================
+    // =================================================
+    // GET REAL ORDER
+    // =================================================
 
     const order = await ctx.runQuery(
       internal.paymentMutations.getOrderForPayment,
@@ -51,9 +52,9 @@ export const createRazorpayOrder = action({
       throw new Error("Order not found.");
     }
 
-    // =============================================
+    // =================================================
     // PREVENT DUPLICATE PAYMENT
-    // =============================================
+    // =================================================
 
     if (order.paymentStatus === "paid") {
       throw new Error("This order has already been paid.");
@@ -63,43 +64,44 @@ export const createRazorpayOrder = action({
       throw new Error("This order has been cancelled.");
     }
 
-    // =============================================
+    // =================================================
     // VERIFY ORDER NUMBER
-    // =============================================
+    // =================================================
 
     if (args.orderNumber !== order.orderNumber) {
       throw new Error("Invalid order information.");
     }
 
-    // =============================================
+    // =================================================
     // USE DATABASE TOTAL
-    // DO NOT TRUST FRONTEND AMOUNT
-    // =============================================
+    // =================================================
 
     const amountInRupees = Number(order.total || 0);
+
     const amountInPaise = Math.round(amountInRupees * 100);
 
     if (!Number.isFinite(amountInPaise) || amountInPaise < 100) {
       throw new Error("Razorpay order amount must be at least ₹1.");
     }
 
-    // =============================================
+    // =================================================
     // BASIC AUTH
-    // =============================================
+    // =================================================
 
     const auth = Buffer.from(
       `${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`
     ).toString("base64");
 
-    // =============================================
+    // =================================================
     // CREATE RAZORPAY ORDER
-    // =============================================
+    // =================================================
 
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
 
       headers: {
         "Content-Type": "application/json",
+
         Authorization: `Basic ${auth}`,
       },
 
@@ -114,9 +116,9 @@ export const createRazorpayOrder = action({
       }),
     });
 
-    // =============================================
-    // HANDLE RAZORPAY ERROR
-    // =============================================
+    // =================================================
+    // HANDLE ERROR
+    // =================================================
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -128,7 +130,7 @@ export const createRazorpayOrder = action({
       try {
         razorpayError = JSON.parse(errorText);
       } catch {
-        // Ignore JSON parsing error
+        // Ignore JSON parse error
       }
 
       const description =
@@ -137,9 +139,9 @@ export const createRazorpayOrder = action({
       throw new Error(description);
     }
 
-    // =============================================
+    // =================================================
     // GET RAZORPAY ORDER
-    // =============================================
+    // =================================================
 
     const razorpayOrder = await response.json();
 
@@ -147,24 +149,28 @@ export const createRazorpayOrder = action({
       throw new Error("Razorpay did not return an order ID.");
     }
 
-    // =============================================
+    // =================================================
     // SAVE RAZORPAY ORDER ID
-    // =============================================
+    // =================================================
 
     await ctx.runMutation(internal.paymentMutations.saveRazorpayOrderId, {
       orderId: args.orderId,
       razorpayOrderId: razorpayOrder.id,
     });
 
-    // =============================================
+    // =================================================
     // RETURN TO FRONTEND
-    // =============================================
+    // =================================================
 
     return {
       success: true,
+
       razorpayOrderId: razorpayOrder.id,
+
       amount: razorpayOrder.amount,
+
       currency: razorpayOrder.currency,
+
       keyId: RAZORPAY_KEY_ID,
     };
   },
@@ -183,17 +189,17 @@ export const verifyPayment = action({
   },
 
   handler: async (ctx, args) => {
-    // =============================================
-    // CHECK SECRET KEY
-    // =============================================
+    // =================================================
+    // CHECK SECRET
+    // =================================================
 
     if (!RAZORPAY_KEY_SECRET) {
       throw new Error("RAZORPAY_KEY_SECRET is not configured.");
     }
 
-    // =============================================
+    // =================================================
     // GET ORDER
-    // =============================================
+    // =================================================
 
     const order = await ctx.runQuery(
       internal.paymentMutations.getOrderForPayment,
@@ -206,50 +212,54 @@ export const verifyPayment = action({
       throw new Error("Order not found.");
     }
 
-    // =============================================
-    // VERIFY RAZORPAY ORDER ID
-    // =============================================
+    // =================================================
+    // VERIFY RAZORPAY ORDER
+    // =================================================
 
     if (order.razorpayOrderId !== args.razorpayOrderId) {
       throw new Error("Invalid Razorpay order.");
     }
 
-    // =============================================
+    // =================================================
     // ALREADY PAID
-    // =============================================
+    // =================================================
 
     if (order.paymentStatus === "paid") {
       return {
         success: true,
+
         message: "Payment was already verified.",
+
         orderId: args.orderId,
+
         paymentId: order.paymentId || args.razorpayPaymentId,
       };
     }
 
-    // =============================================
+    // =================================================
     // GENERATE SIGNATURE
-    // =============================================
+    // =================================================
 
     const generatedSignature = crypto
       .createHmac("sha256", RAZORPAY_KEY_SECRET)
       .update(`${args.razorpayOrderId}|${args.razorpayPaymentId}`)
       .digest("hex");
 
-    // =============================================
+    // =================================================
     // VERIFY SIGNATURE LENGTH
-    // =============================================
+    // =================================================
 
     if (generatedSignature.length !== args.razorpaySignature.length) {
       throw new Error("Payment signature verification failed.");
     }
 
-    // =============================================
+    // =================================================
     // VERIFY SIGNATURE
-    // =============================================
+    // =================================================
 
     const isValid = crypto.timingSafeEqual(
       Buffer.from(generatedSignature, "utf8"),
+
       Buffer.from(args.razorpaySignature, "utf8")
     );
 
@@ -257,27 +267,33 @@ export const verifyPayment = action({
       throw new Error("Payment signature verification failed.");
     }
 
-    // =============================================
+    // =================================================
     // MARK PAYMENT SUCCESS
-    // =============================================
+    // =================================================
 
     const result = await ctx.runMutation(
       internal.paymentMutations.markPaymentSuccess,
+
       {
         orderId: args.orderId,
+
         paymentId: args.razorpayPaymentId,
       }
     );
 
-    // =============================================
+    // =================================================
     // RETURN SUCCESS
-    // =============================================
+    // =================================================
 
     return {
       success: true,
+
       message: "Payment verified successfully.",
+
       orderId: args.orderId,
+
       paymentId: args.razorpayPaymentId,
+
       ...result,
     };
   },

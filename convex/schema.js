@@ -9,22 +9,14 @@ export default defineSchema({
   products: defineTable({
     name: v.string(),
     volume: v.string(),
-
     price: v.number(),
     oldPrice: v.optional(v.number()),
-
     reviews: v.number(),
-
     badge: v.optional(v.string()),
-
     image: v.string(),
-
     images: v.optional(v.array(v.string())),
-
     stock: v.number(),
-
     isActive: v.boolean(),
-
     createdAt: v.number(),
   }).index("by_name", ["name"]),
 
@@ -34,11 +26,8 @@ export default defineSchema({
 
   cart: defineTable({
     sessionId: v.string(),
-
     productId: v.id("products"),
-
     quantity: v.number(),
-
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -51,16 +40,12 @@ export default defineSchema({
 
   addresses: defineTable({
     sessionId: v.string(),
-
     fullName: v.string(),
     mobile: v.string(),
-
     address: v.string(),
-
     city: v.string(),
     state: v.string(),
     pincode: v.string(),
-
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_session", ["sessionId"]),
@@ -71,7 +56,6 @@ export default defineSchema({
 
   orders: defineTable({
     sessionId: v.string(),
-
     orderNumber: v.string(),
 
     customerName: v.string(),
@@ -89,14 +73,10 @@ export default defineSchema({
     items: v.array(
       v.object({
         productId: v.id("products"),
-
         name: v.string(),
         volume: v.string(),
-
         price: v.number(),
-
         quantity: v.number(),
-
         image: v.string(),
       })
     ),
@@ -106,13 +86,9 @@ export default defineSchema({
     // -----------------------------------------------------
 
     subtotal: v.number(),
-
     discount: v.number(),
-
     shipping: v.number(),
-
     gst: v.number(),
-
     total: v.number(),
 
     // -----------------------------------------------------
@@ -137,13 +113,13 @@ export default defineSchema({
     // -----------------------------------------------------
 
     createdAt: v.number(),
-
     updatedAt: v.number(),
   })
     .index("by_session", ["sessionId"])
     .index("by_order_number", ["orderNumber"])
     .index("by_payment_status", ["paymentStatus"])
-    .index("by_order_status", ["orderStatus"]),
+    .index("by_order_status", ["orderStatus"])
+    .index("by_razorpayOrderId", ["razorpayOrderId"]),
 
   // =====================================================
   // CONTACT ENQUIRIES
@@ -151,39 +127,24 @@ export default defineSchema({
 
   contacts: defineTable({
     name: v.string(),
-
     email: v.string(),
-
     phone: v.optional(v.string()),
-
     subject: v.string(),
-
     message: v.string(),
-
     status: v.string(),
-
     createdAt: v.number(),
   }).index("by_status", ["status"]),
 
   // =====================================================
   // ADMIN USERS
   // =====================================================
-  // =====================================================
-  // ADMIN USERS
-  // =====================================================
 
   adminUsers: defineTable({
     email: v.string(),
-
     fullName: v.string(),
-
-    // Password is stored as a hash
     passwordHash: v.string(),
-
     isActive: v.boolean(),
-
     createdAt: v.number(),
-
     updatedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
@@ -193,11 +154,8 @@ export default defineSchema({
 
   adminSessions: defineTable({
     adminId: v.id("adminUsers"),
-
     sessionToken: v.string(),
-
     createdAt: v.number(),
-
     expiresAt: v.number(),
   })
     .index("by_token", ["sessionToken"])
@@ -209,11 +167,8 @@ export default defineSchema({
 
   adminOtps: defineTable({
     email: v.string(),
-
     otp: v.string(),
-
     expiresAt: v.number(),
-
     createdAt: v.number(),
   }).index("by_email", ["email"]),
 });
