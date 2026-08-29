@@ -1,8 +1,10 @@
-import { internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
+
 import { v } from "convex/values";
 
 // =====================================================
 // GET ORDER FOR PAYMENT
+// INTERNAL ONLY
 // =====================================================
 
 export const getOrderForPayment = internalQuery({
@@ -23,9 +25,10 @@ export const getOrderForPayment = internalQuery({
 
 // =====================================================
 // SAVE RAZORPAY ORDER ID
+// INTERNAL ONLY
 // =====================================================
 
-export const saveRazorpayOrderId = mutation({
+export const saveRazorpayOrderId = internalMutation({
   args: {
     orderId: v.id("orders"),
     razorpayOrderId: v.string(),
@@ -38,9 +41,7 @@ export const saveRazorpayOrderId = mutation({
       throw new Error("Order not found.");
     }
 
-    // Prevent replacing an already-linked
-    // Razorpay order with another one.
-
+    // Prevent replacing an existing Razorpay order ID
     if (
       order.razorpayOrderId &&
       order.razorpayOrderId !== args.razorpayOrderId
@@ -63,9 +64,10 @@ export const saveRazorpayOrderId = mutation({
 
 // =====================================================
 // MARK PAYMENT SUCCESS
+// INTERNAL ONLY
 // =====================================================
 
-export const markPaymentSuccess = mutation({
+export const markPaymentSuccess = internalMutation({
   args: {
     orderId: v.id("orders"),
     paymentId: v.string(),
@@ -90,7 +92,7 @@ export const markPaymentSuccess = mutation({
     }
 
     // =============================================
-    // MARK PAYMENT PAID
+    // MARK PAYMENT AS PAID
     // =============================================
 
     await ctx.db.patch(args.orderId, {
