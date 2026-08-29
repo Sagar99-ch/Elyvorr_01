@@ -26,6 +26,8 @@ import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminEnquiriesPage from "../pages/admin/AdminEnquiriesPage";
 
 import ProductDetailsPage from "../pages/ProductDetailsPage";
+
+import AdminSettingsPage from "../pages/admin/AdminSettingsPage";
 function AppRoutes() {
   return (
     <Routes>
@@ -67,14 +69,7 @@ function AppRoutes() {
 
         {/* Settings */}
 
-        <Route
-          path="settings"
-          element={
-            <div className="flex min-h-[500px] items-center justify-center">
-              <h1 className="font-serif text-3xl font-semibold">Settings</h1>
-            </div>
-          }
-        />
+        <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
 
       {/* =================================================

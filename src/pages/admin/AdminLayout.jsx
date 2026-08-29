@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import {
   BarChart3,
   ChevronLeft,
@@ -12,10 +13,16 @@ import {
   ShoppingBag,
   X,
 } from "lucide-react";
+
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useMutation } from "convex/react";
+
+import { useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
+
+// =====================================================
+// NAVIGATION
+// =====================================================
 
 const navItems = [
   {
@@ -45,22 +52,93 @@ const navItems = [
   },
 ];
 
+// =====================================================
+// ADMIN LAYOUT
+// =====================================================
+
 function AdminLayout() {
   const navigate = useNavigate();
 
+  // ===================================================
+  // SESSION
+  // ===================================================
+
+  const [sessionToken, setSessionToken] = useState(() =>
+    localStorage.getItem("elyvorr_admin_session")
+  );
+
+  // ===================================================
+  // ADMIN SESSION QUERY
+  // ===================================================
+
+  const admin = useQuery(
+    api.admin.verifySession,
+    sessionToken
+      ? {
+          sessionToken,
+        }
+      : "skip"
+  );
+
+  // ===================================================
+  // LOGOUT
+  // ===================================================
+
   const logout = useMutation(api.admin.logout);
+
+  // ===================================================
+  // UI STATE
+  // ===================================================
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [collapsed, setCollapsed] = useState(false);
 
+  // ===================================================
+  // KEEP LOCAL ADMIN DATA UPDATED
+  // ===================================================
+
+  useEffect(() => {
+    if (!admin) {
+      return;
+    }
+
+    const updatedAdmin = {
+      id: admin.id,
+      fullName: admin.fullName,
+      email: admin.email,
+    };
+
+    localStorage.setItem("elyvorr_admin_user", JSON.stringify(updatedAdmin));
+  }, [admin]);
+
+  // ===================================================
+  // SESSION INVALID / EXPIRED
+  // ===================================================
+
+  useEffect(() => {
+    if (sessionToken && admin === null) {
+      localStorage.removeItem("elyvorr_admin_session");
+
+      localStorage.removeItem("elyvorr_admin_user");
+
+      setSessionToken(null);
+
+      navigate("/admin/login");
+    }
+  }, [admin, sessionToken, navigate]);
+
+  // ===================================================
+  // LOGOUT
+  // ===================================================
+
   const handleLogout = async () => {
-    const sessionToken = localStorage.getItem("elyvorr_admin_session");
+    const currentSessionToken = localStorage.getItem("elyvorr_admin_session");
 
     try {
-      if (sessionToken) {
+      if (currentSessionToken) {
         await logout({
-          sessionToken,
+          sessionToken: currentSessionToken,
         });
       }
     } catch (error) {
@@ -70,9 +148,25 @@ function AdminLayout() {
 
       localStorage.removeItem("elyvorr_admin_user");
 
+      setSessionToken(null);
+
       navigate("/admin/login");
     }
   };
+
+  // ===================================================
+  // ADMIN DISPLAY DATA
+  // ===================================================
+
+  const adminName = admin?.fullName || "Administrator";
+
+  const adminEmail = admin?.email || "";
+
+  const adminInitial = adminName.trim().charAt(0).toUpperCase() || "A";
+
+  // ===================================================
+  // RETURN
+  // ===================================================
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#181818]">
@@ -200,6 +294,10 @@ function AdminLayout() {
             </p>
           )}
 
+          {/* =================================================
+              SETTINGS
+          ================================================= */}
+
           <NavLink
             to="/admin/settings"
             onClick={() => setSidebarOpen(false)}
@@ -322,17 +420,19 @@ function AdminLayout() {
               </p>
             </div>
 
-            {/* Right */}
+            {/* =================================================
+                RIGHT ADMIN PROFILE
+            ================================================= */}
 
             <div className="ml-auto flex items-center gap-3">
               <div className="hidden text-right sm:block">
-                <p className="text-xs font-semibold">Sagar Choudhary</p>
+                <p className="text-xs font-semibold">{adminName}</p>
 
                 <p className="mt-0.5 text-[10px] text-[#999]">Administrator</p>
               </div>
 
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#181818] text-sm font-semibold text-white">
-                S
+                {adminInitial}
               </div>
             </div>
           </div>

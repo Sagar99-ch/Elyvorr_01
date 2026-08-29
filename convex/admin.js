@@ -1,6 +1,7 @@
 import { action, internalMutation, mutation, query } from "./_generated/server";
 
 import { internal } from "./_generated/api";
+
 import { v } from "convex/values";
 
 // =====================================================
@@ -81,7 +82,9 @@ export const getAdminByEmail = query({
 export const createAdmin = internalMutation({
   args: {
     fullName: v.string(),
+
     email: v.string(),
+
     passwordHash: v.string(),
   },
 
@@ -109,11 +112,13 @@ export const createAdmin = internalMutation({
       isActive: true,
 
       createdAt: now,
+
       updatedAt: now,
     });
 
     return {
       success: true,
+
       adminId,
     };
   },
@@ -172,7 +177,7 @@ export const setupAdmin = action({
 });
 
 // =====================================================
-// ONE-TIME ADMIN SETUP — NO CLI JSON REQUIRED
+// ONE-TIME ADMIN SETUP
 // =====================================================
 
 export const setupFirstAdmin = action({
@@ -221,7 +226,9 @@ export const setupFirstAdmin = action({
 
     return await ctx.runMutation(internal.admin.createAdmin, {
       fullName: setupName.trim(),
+
       email,
+
       passwordHash,
     });
   },
@@ -234,6 +241,7 @@ export const setupFirstAdmin = action({
 export const login = mutation({
   args: {
     email: v.string(),
+
     password: v.string(),
   },
 
@@ -324,6 +332,182 @@ export const verifySession = query({
       fullName: admin.fullName,
 
       email: admin.email,
+    };
+  },
+});
+
+// =====================================================
+// UPDATE ADMIN CREDENTIALS / PROFILE
+// =====================================================
+
+export const updateCredentials = mutation({
+  args: {
+    sessionToken: v.string(),
+
+    currentPassword: v.string(),
+
+    fullName: v.optional(v.string()),
+
+    newEmail: v.optional(v.string()),
+
+    newPassword: v.optional(v.string()),
+  },
+
+  handler: async (ctx, args) => {
+    // =================================================
+    // FIND SESSION
+    // =================================================
+
+    const session = await ctx.db
+      .query("adminSessions")
+      .withIndex("by_token", (q) => q.eq("sessionToken", args.sessionToken))
+      .unique();
+
+    if (!session) {
+      throw new Error("Your admin session is invalid. Please login again.");
+    }
+
+    // =================================================
+    // SESSION EXPIRY
+    // =================================================
+
+    if (Date.now() > session.expiresAt) {
+      throw new Error("Your admin session has expired. Please login again.");
+    }
+
+    // =================================================
+    // GET ADMIN
+    // =================================================
+
+    const admin = await ctx.db.get(session.adminId);
+
+    if (!admin || !admin.isActive) {
+      throw new Error("Admin account is not active.");
+    }
+
+    // =================================================
+    // VERIFY CURRENT PASSWORD
+    // =================================================
+
+    const passwordValid = await verifyHash(
+      args.currentPassword,
+      admin.passwordHash
+    );
+
+    if (!passwordValid) {
+      throw new Error("Current password is incorrect.");
+    }
+
+    // =================================================
+    // CHECK CHANGES
+    // =================================================
+
+    if (args.fullName === undefined && !args.newEmail && !args.newPassword) {
+      throw new Error("Please enter a new name, email or password.");
+    }
+
+    const updates = {};
+
+    // =================================================
+    // NAME CHANGE
+    // =================================================
+
+    if (args.fullName !== undefined) {
+      const fullName = args.fullName.trim();
+
+      if (!fullName) {
+        throw new Error("Full name cannot be empty.");
+      }
+
+      if (fullName.length < 2) {
+        throw new Error("Full name must be at least 2 characters.");
+      }
+
+      if (fullName !== admin.fullName) {
+        updates.fullName = fullName;
+      }
+    }
+
+    // =================================================
+    // EMAIL CHANGE
+    // =================================================
+
+    if (args.newEmail) {
+      const email = normalizeEmail(args.newEmail);
+
+      if (!email || !email.includes("@") || !email.includes(".")) {
+        throw new Error("Please enter a valid email address.");
+      }
+
+      if (email === admin.email) {
+        throw new Error("New email is the same as your current email.");
+      }
+
+      const existingAdmin = await ctx.db
+        .query("adminUsers")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .unique();
+
+      if (existingAdmin) {
+        throw new Error("This email is already being used by another admin.");
+      }
+
+      updates.email = email;
+    }
+
+    // =================================================
+    // PASSWORD CHANGE
+    // =================================================
+
+    if (args.newPassword) {
+      if (args.newPassword.length < 8) {
+        throw new Error("New password must be at least 8 characters.");
+      }
+
+      const samePassword = await verifyHash(
+        args.newPassword,
+        admin.passwordHash
+      );
+
+      if (samePassword) {
+        throw new Error(
+          "New password must be different from your current password."
+        );
+      }
+
+      updates.passwordHash = await createHash(args.newPassword);
+    }
+
+    // =================================================
+    // UPDATE TIMESTAMP
+    // =================================================
+
+    updates.updatedAt = Date.now();
+
+    // =================================================
+    // SAVE
+    // =================================================
+
+    await ctx.db.patch(admin._id, updates);
+
+    // =================================================
+    // GET UPDATED ADMIN
+    // =================================================
+
+    const updatedAdmin = await ctx.db.get(admin._id);
+
+    return {
+      success: true,
+
+      message: "Admin details updated successfully.",
+
+      admin: {
+        id: updatedAdmin._id,
+
+        fullName: updatedAdmin.fullName,
+
+        email: updatedAdmin.email,
+      },
     };
   },
 });
