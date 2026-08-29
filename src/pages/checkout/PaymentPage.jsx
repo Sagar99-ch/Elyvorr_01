@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, MapPin, ShieldCheck, Truck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -33,6 +33,9 @@ function PaymentPage() {
 
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentSuccessOrder, setPaymentSuccessOrder] = useState(null);
 
   // =====================================================
   // CONVEX CART
@@ -63,6 +66,69 @@ function PaymentPage() {
   const createRazorpayOrder = useAction(api.payment.createRazorpayOrder);
 
   const verifyPayment = useAction(api.payment.verifyPayment);
+
+  // Live Convex query. The Razorpay webhook changes the order
+  // to paid even when the mobile/UPI browser callback is missed.
+  const trackedOrder = useQuery(
+    api.orders.getOrderById,
+    trackingOrderId ? { orderId: trackingOrderId } : "skip"
+  );
+
+  const clearCart = useMutation(api.cart.clearCart);
+
+  // =====================================================
+  // LIVE PAYMENT STATUS
+  // =====================================================
+  // Important for UPI/mobile: the payment app may not return
+  // Razorpay's frontend callback to the browser. The webhook
+  // updates Convex, and this live query detects that update.
+
+  useEffect(() => {
+    if (!trackingOrderId || !trackedOrder) return;
+
+    if (trackedOrder.paymentStatus !== "paid") return;
+
+    let cancelled = false;
+
+    const finishPayment = async () => {
+      if (cancelled) return;
+
+      console.log(
+        "ELYVORR: Convex confirms payment as PAID:",
+        trackedOrder.orderNumber
+      );
+
+      setPaymentError("");
+      setPaymentLoading(false);
+      setPaymentSuccessOrder(trackedOrder);
+      setPaymentSuccess(true);
+
+      localStorage.setItem(
+        "elyvorr_last_order",
+        JSON.stringify({
+          orderId: trackedOrder._id,
+          orderNumber: trackedOrder.orderNumber,
+          total: trackedOrder.total,
+          paymentId: trackedOrder.paymentId || "",
+        })
+      );
+
+      try {
+        await clearCart({ sessionId });
+      } catch (error) {
+        console.warn(
+          "ELYVORR: Cart clear after webhook payment failed:",
+          error
+        );
+      }
+    };
+
+    finishPayment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trackingOrderId, trackedOrder, clearCart, sessionId]);
 
   // =====================================================
   // LOADING
@@ -259,6 +325,13 @@ function PaymentPage() {
         throw new Error("Unable to create your order.");
       }
 
+      // Start watching this order BEFORE opening Razorpay.
+      // This is the mobile/UPI fallback when the browser
+      // callback does not return.
+      setTrackingOrderId(pendingOrder.orderId);
+      setPaymentSuccess(false);
+      setPaymentSuccessOrder(null);
+
       // =================================================
       // STEP 3
       // CREATE RAZORPAY ORDER
@@ -388,24 +461,40 @@ function PaymentPage() {
             // =================================================
             // PAYMENT VERIFIED
             // =================================================
+            // No /order-success route exists in this project.
+            // Show success directly on the payment page.
 
             setPaymentLoading(false);
+            setPaymentSuccessOrder({
+              _id: pendingOrder.orderId,
+              orderNumber: pendingOrder.orderNumber,
+              total: pendingOrder.total,
+              paymentStatus: "paid",
+              orderStatus: "confirmed",
+              paymentId: response.razorpay_payment_id,
+            });
+            setPaymentSuccess(true);
 
-            console.log("ELYVORR: Payment verified. Redirecting...");
+            localStorage.setItem(
+              "elyvorr_last_order",
+              JSON.stringify({
+                orderId: pendingOrder.orderId,
+                orderNumber: pendingOrder.orderNumber,
+                total: pendingOrder.total,
+                paymentId: response.razorpay_payment_id,
+              })
+            );
 
-            const successUrl = `/order-success?order=${encodeURIComponent(
-              pendingOrder.orderNumber
-            )}`;
+            try {
+              await clearCart({ sessionId });
+            } catch (clearError) {
+              console.warn(
+                "ELYVORR: Cart clear after verified payment failed:",
+                clearError
+              );
+            }
 
-            // =================================================
-            // HARD REDIRECT
-            //
-            // Using window.location.replace instead of React
-            // navigate helps mobile/UPI return to the actual
-            // website URL after Razorpay closes.
-            // =================================================
-
-            window.location.replace(successUrl);
+            console.log("ELYVORR: Payment verified successfully.");
           } catch (error) {
             console.error("ELYVORR: Payment verification error:", error);
 
@@ -537,6 +626,83 @@ function PaymentPage() {
 
             <div className="h-[520px] animate-pulse rounded-[28px] bg-white" />
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  // =====================================================
+  // PAYMENT SUCCESS
+  // =====================================================
+  // This is intentionally on the existing payment route.
+  // No separate OrderSuccessPage is required.
+
+  if (paymentSuccess && paymentSuccessOrder) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#FAF8F4] px-5">
+        <div className="w-full max-w-xl text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#EAF7ED]">
+            <Check size={38} className="text-[#2F8F46]" />
+          </div>
+
+          <p className="mt-8 text-[10px] font-semibold uppercase tracking-[4px] text-[#C9A96E]">
+            ELYVORR
+          </p>
+
+          <h1 className="mt-3 font-serif text-5xl font-semibold text-[#181818]">
+            Payment Successful
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-[#777]">
+            Your payment has been received and your order is confirmed.
+          </p>
+
+          <div className="mx-auto mt-8 rounded-[26px] border border-[#E5DED3] bg-white p-6 text-left shadow-[0_20px_70px_rgba(30,25,20,0.06)]">
+            <div className="flex items-center justify-between border-b border-[#ECE7DF] pb-4">
+              <span className="text-xs uppercase tracking-[2px] text-[#999]">
+                Order Number
+              </span>
+              <span className="text-sm font-semibold">
+                {paymentSuccessOrder.orderNumber}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between pt-4">
+              <span className="text-xs uppercase tracking-[2px] text-[#999]">
+                Payment
+              </span>
+              <span className="rounded-full bg-[#EAF7ED] px-4 py-2 text-xs font-semibold uppercase tracking-[1px] text-[#2F8F46]">
+                Paid
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs uppercase tracking-[2px] text-[#999]">
+                Order Status
+              </span>
+              <span className="rounded-full bg-[#EAF7ED] px-4 py-2 text-xs font-semibold uppercase tracking-[1px] text-[#2F8F46]">
+                Confirmed
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between border-t border-[#ECE7DF] pt-4">
+              <span className="text-xs uppercase tracking-[2px] text-[#999]">
+                Total Paid
+              </span>
+              <span className="font-serif text-2xl font-semibold">
+                ₹
+                {Number(paymentSuccessOrder.total || 0).toLocaleString("en-IN")}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="mt-8 rounded-xl bg-[#181818] px-8 py-4 text-xs font-semibold uppercase tracking-[2px] text-white transition hover:bg-[#C9A96E]"
+          >
+            Continue Shopping
+          </button>
         </div>
       </main>
     );

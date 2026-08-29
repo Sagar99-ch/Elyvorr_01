@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import crypto from "crypto";
 
 const http = httpRouter();
 
@@ -15,13 +16,15 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     try {
       // =================================================
-      // GET WEBHOOK SECRET
+      // WEBHOOK SECRET
       // =================================================
 
       const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
       if (!webhookSecret) {
-        console.error("RAZORPAY_WEBHOOK_SECRET is not configured.");
+        console.error(
+          "ELYVORR WEBHOOK: RAZORPAY_WEBHOOK_SECRET is not configured."
+        );
 
         return new Response(
           JSON.stringify({
@@ -38,22 +41,22 @@ http.route({
       }
 
       // =================================================
-      // READ RAW BODY
+      // RAW BODY
       // IMPORTANT:
-      // Razorpay signature must be generated using
+      // Razorpay signature must be calculated using
       // the exact raw request body.
       // =================================================
 
       const rawBody = await request.text();
 
       // =================================================
-      // GET RAZORPAY SIGNATURE
+      // RAZORPAY SIGNATURE
       // =================================================
 
       const signature = request.headers.get("x-razorpay-signature");
 
       if (!signature) {
-        console.error("Missing Razorpay webhook signature.");
+        console.error("ELYVORR WEBHOOK: Missing x-razorpay-signature.");
 
         return new Response(
           JSON.stringify({
@@ -70,46 +73,20 @@ http.route({
       }
 
       // =================================================
-      // GENERATE HMAC SHA256 SIGNATURE
-      // =================================================
-      //
-      // Web Crypto API is used because this is a Convex
-      // HTTP Action and should not depend on Node crypto.
+      // CALCULATE EXPECTED SIGNATURE
       // =================================================
 
-      const encoder = new TextEncoder();
-
-      const key = await crypto.subtle.importKey(
-        "raw",
-        encoder.encode(webhookSecret),
-        {
-          name: "HMAC",
-          hash: "SHA-256",
-        },
-        false,
-        ["sign"]
-      );
-
-      const signatureBuffer = await crypto.subtle.sign(
-        "HMAC",
-        key,
-        encoder.encode(rawBody)
-      );
+      const expectedSignature = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(rawBody)
+        .digest("hex");
 
       // =================================================
-      // CONVERT SIGNATURE TO HEX
+      // VERIFY SIGNATURE LENGTH
       // =================================================
 
-      const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-        .map((byte) => byte.toString(16).padStart(2, "0"))
-        .join("");
-
-      // =================================================
-      // VERIFY SIGNATURE
-      // =================================================
-
-      if (expectedSignature !== signature) {
-        console.error("Invalid Razorpay webhook signature.");
+      if (expectedSignature.length !== signature.length) {
+        console.error("ELYVORR WEBHOOK: Invalid signature length.");
 
         return new Response(
           JSON.stringify({
@@ -125,10 +102,34 @@ http.route({
         );
       }
 
-      console.log("Razorpay webhook signature verified.");
+      // =================================================
+      // VERIFY SIGNATURE
+      // =================================================
+
+      const isValid = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, "utf8"),
+        Buffer.from(signature, "utf8")
+      );
+
+      if (!isValid) {
+        console.error("ELYVORR WEBHOOK: Invalid webhook signature.");
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Invalid webhook signature.",
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
 
       // =================================================
-      // PARSE WEBHOOK JSON
+      // PARSE JSON
       // =================================================
 
       let payload;
@@ -136,7 +137,7 @@ http.route({
       try {
         payload = JSON.parse(rawBody);
       } catch (error) {
-        console.error("Invalid Razorpay webhook JSON:", error);
+        console.error("ELYVORR WEBHOOK: Invalid JSON payload.");
 
         return new Response(
           JSON.stringify({
@@ -153,17 +154,14 @@ http.route({
       }
 
       // =================================================
-      // GET EVENT
+      // EVENT
       // =================================================
 
       const event = payload?.event;
 
       console.log("=================================================");
-
       console.log("ELYVORR RAZORPAY WEBHOOK");
-
-      console.log("Event:", event);
-
+      console.log("EVENT:", event);
       console.log("=================================================");
 
       // =================================================
@@ -174,25 +172,22 @@ http.route({
         const payment = payload?.payload?.payment?.entity;
 
         const paymentId = payment?.id;
-
         const razorpayOrderId = payment?.order_id;
 
         const amountPaise = Number(payment?.amount || 0);
-
-        console.log("PAYMENT CAPTURED");
-
-        console.log("Payment ID:", paymentId);
-
-        console.log("Razorpay Order ID:", razorpayOrderId);
-
-        console.log("Amount:", amountPaise);
 
         // -------------------------------------------------
         // VALIDATE PAYMENT DATA
         // -------------------------------------------------
 
         if (!paymentId || !razorpayOrderId) {
-          console.error("Payment captured event is missing payment/order ID.");
+          console.error(
+            "ELYVORR WEBHOOK: Payment ID or Razorpay Order ID missing.",
+            {
+              paymentId,
+              razorpayOrderId,
+            }
+          );
 
           return new Response(
             JSON.stringify({
@@ -212,6 +207,12 @@ http.route({
         // UPDATE CONVEX ORDER
         // -------------------------------------------------
 
+        console.log("ELYVORR WEBHOOK: Processing captured payment...");
+
+        console.log("Razorpay Order ID:", razorpayOrderId);
+        console.log("Payment ID:", paymentId);
+        console.log("Amount Paise:", amountPaise);
+
         const result = await ctx.runMutation(
           internal.paymentMutations.markPaymentSuccessByRazorpayOrderId,
           {
@@ -221,12 +222,15 @@ http.route({
           }
         );
 
-        console.log("ORDER UPDATE RESULT:", result);
+        console.log("ELYVORR WEBHOOK: Convex update result:", result);
       }
 
-      // =====================================================
+      // =================================================
       // ORDER PAID
-      // =====================================================
+      // =================================================
+      // Razorpay may send order.paid after successful
+      // payment. We also handle this event.
+      // =================================================
 
       if (event === "order.paid") {
         const orderEntity = payload?.payload?.order?.entity;
@@ -234,30 +238,24 @@ http.route({
         const razorpayOrderId = orderEntity?.id;
 
         // -------------------------------------------------
-        // order.paid payload normally contains payment
-        // information as well.
+        // PAYMENT ENTITY
         // -------------------------------------------------
 
         const payment = payload?.payload?.payment?.entity;
 
-        const paymentId = payment?.id;
+        const paymentId = payment?.id || "";
 
-        const amountPaise = Number(payment?.amount || orderEntity?.amount || 0);
-
-        console.log("ORDER PAID");
-
-        console.log("Razorpay Order ID:", razorpayOrderId);
-
-        console.log("Payment ID:", paymentId);
-
-        console.log("Amount:", amountPaise);
-
-        // -------------------------------------------------
-        // VALIDATE ORDER ID
-        // -------------------------------------------------
+        const amountPaise = Number(
+          payment?.amount ||
+            orderEntity?.amount_paid ||
+            orderEntity?.amount ||
+            0
+        );
 
         if (!razorpayOrderId) {
-          console.error("order.paid event is missing Razorpay order ID.");
+          console.error(
+            "ELYVORR WEBHOOK: order.paid missing Razorpay Order ID."
+          );
 
           return new Response(
             JSON.stringify({
@@ -274,88 +272,77 @@ http.route({
         }
 
         // -------------------------------------------------
-        // PAYMENT ID
+        // If payment ID is unavailable in order.paid,
+        // don't overwrite an existing payment ID with
+        // an empty string.
+        //
+        // payment.captured normally handles the payment
+        // ID. order.paid is mainly a backup confirmation.
         // -------------------------------------------------
 
-        if (!paymentId) {
-          console.error("order.paid event is missing payment ID.");
+        if (paymentId) {
+          console.log("ELYVORR WEBHOOK: Processing order.paid...");
 
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: "Missing payment ID.",
-            }),
+          const result = await ctx.runMutation(
+            internal.paymentMutations.markPaymentSuccessByRazorpayOrderId,
             {
-              status: 400,
-              headers: {
-                "Content-Type": "application/json",
-              },
+              razorpayOrderId,
+              paymentId,
+              amountPaise,
+            }
+          );
+
+          console.log("ELYVORR WEBHOOK: order.paid update result:", result);
+        } else {
+          console.log(
+            "ELYVORR WEBHOOK: order.paid received without payment ID.",
+            {
+              razorpayOrderId,
+              amountPaise,
             }
           );
         }
-
-        // -------------------------------------------------
-        // UPDATE CONVEX ORDER
-        // -------------------------------------------------
-
-        const result = await ctx.runMutation(
-          internal.paymentMutations.markPaymentSuccessByRazorpayOrderId,
-          {
-            razorpayOrderId,
-            paymentId,
-            amountPaise,
-          }
-        );
-
-        console.log("ORDER.PAID UPDATE RESULT:", result);
       }
 
-      // =====================================================
+      // =================================================
       // PAYMENT FAILED
-      // =====================================================
+      // =================================================
 
       if (event === "payment.failed") {
         const payment = payload?.payload?.payment?.entity;
 
-        console.log("=================================================");
-
-        console.log("ELYVORR PAYMENT FAILED");
+        console.log("ELYVORR RAZORPAY PAYMENT FAILED");
 
         console.log("Payment ID:", payment?.id);
 
         console.log("Razorpay Order ID:", payment?.order_id);
 
-        console.log("Error Code:", payment?.error_code);
-
-        console.log("Error Description:", payment?.error_description);
-
-        console.log("=================================================");
-
-        // IMPORTANT:
-        // Do NOT mark the order as paid.
+        console.log(
+          "Error:",
+          payment?.error_description ||
+            payment?.error_reason ||
+            "Unknown payment error"
+        );
       }
 
-      // =====================================================
-      // OTHER EVENTS
-      // =====================================================
+      // =================================================
+      // PAYMENT AUTHORIZED
+      // =================================================
 
-      if (
-        event !== "payment.captured" &&
-        event !== "order.paid" &&
-        event !== "payment.failed"
-      ) {
-        console.log("Unhandled Razorpay event:", event);
+      if (event === "payment.authorized") {
+        const payment = payload?.payload?.payment?.entity;
+
+        console.log("ELYVORR PAYMENT AUTHORIZED:", payment?.id);
       }
 
-      // =====================================================
-      // SUCCESS RESPONSE
-      // =====================================================
+      // =================================================
+      // ACKNOWLEDGE RAZORPAY
+      // =================================================
 
       return new Response(
         JSON.stringify({
           success: true,
           received: true,
-          event,
         }),
         {
           status: 200,
@@ -365,15 +352,13 @@ http.route({
         }
       );
     } catch (error) {
-      // =====================================================
-      // WEBHOOK ERROR
-      // =====================================================
+      // =================================================
+      // GLOBAL ERROR
+      // =================================================
 
       console.error("=================================================");
 
-      console.error("ELYVORR RAZORPAY WEBHOOK ERROR");
-
-      console.error(error);
+      console.error("ELYVORR WEBHOOK ERROR:", error);
 
       console.error("=================================================");
 
@@ -395,9 +380,5 @@ http.route({
     }
   }),
 });
-
-// =====================================================
-// EXPORT HTTP ROUTER
-// =====================================================
 
 export default http;
