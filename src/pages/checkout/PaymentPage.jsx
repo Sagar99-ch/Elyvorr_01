@@ -331,14 +331,13 @@ function PaymentPage() {
 
         handler: async function (response) {
           try {
+            console.log("ELYVORR: Razorpay payment success:", response);
+
             setPaymentError("");
             setPaymentLoading(true);
 
-            console.log("ELYVORR: Razorpay payment success:", response);
-
             // =================================================
-            // CLOSE RAZORPAY IMMEDIATELY
-            // Important for mobile / UPI return flow
+            // CLOSE RAZORPAY CHECKOUT
             // =================================================
 
             try {
@@ -348,7 +347,7 @@ function PaymentPage() {
             }
 
             // =================================================
-            // VERIFY PAYMENT ON CONVEX
+            // VERIFY PAYMENT
             // =================================================
 
             const verification = await verifyPayment({
@@ -371,40 +370,51 @@ function PaymentPage() {
             // SAVE LAST ORDER
             // =================================================
 
+            const orderData = {
+              orderId: pendingOrder.orderId,
+
+              orderNumber: pendingOrder.orderNumber,
+
+              total: pendingOrder.total,
+
+              paymentId: response.razorpay_payment_id,
+            };
+
             localStorage.setItem(
               "elyvorr_last_order",
-              JSON.stringify({
-                orderId: pendingOrder.orderId,
-
-                orderNumber: pendingOrder.orderNumber,
-
-                total: pendingOrder.total,
-
-                paymentId: response.razorpay_payment_id,
-              })
+              JSON.stringify(orderData)
             );
+
+            // =================================================
+            // PAYMENT VERIFIED
+            // =================================================
 
             setPaymentLoading(false);
 
+            console.log("ELYVORR: Payment verified. Redirecting...");
+
+            const successUrl = `/order-success?order=${encodeURIComponent(
+              pendingOrder.orderNumber
+            )}`;
+
             // =================================================
-            // SUCCESS PAGE
-            // replace=true prevents returning to payment page
+            // HARD REDIRECT
+            //
+            // Using window.location.replace instead of React
+            // navigate helps mobile/UPI return to the actual
+            // website URL after Razorpay closes.
             // =================================================
 
-            navigate(
-              `/order-success?order=${encodeURIComponent(
-                pendingOrder.orderNumber
-              )}`,
-              {
-                replace: true,
-              }
-            );
+            window.location.replace(successUrl);
           } catch (error) {
             console.error("ELYVORR: Payment verification error:", error);
 
             setPaymentLoading(false);
 
-            setPaymentError(error?.message || "Payment verification failed.");
+            setPaymentError(
+              error?.message ||
+                "Payment verification failed. Please contact support if money was deducted."
+            );
           }
         },
       };
@@ -442,7 +452,15 @@ function PaymentPage() {
       // OPEN RAZORPAY
       // =================================================
 
-      razorpay.open();
+      try {
+        razorpay.open();
+      } catch (error) {
+        console.error("ELYVORR: Unable to open Razorpay:", error);
+
+        setPaymentLoading(false);
+
+        setPaymentError("Unable to open payment gateway. Please try again.");
+      }
     } catch (error) {
       console.error("Payment initialization error:", error);
 

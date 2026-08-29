@@ -12,6 +12,8 @@ import PaymentPage from "../pages/checkout/PaymentPage";
 import AboutPage from "../pages/AboutPage";
 import CollectionPage from "../pages/CollectionPage";
 import ContactPage from "../pages/ContactPage";
+import ProductDetailsPage from "../pages/ProductDetailsPage";
+import OrderSuccessPage from "../pages/OrderSuccessPage";
 
 // =====================================================
 // ADMIN PAGES
@@ -20,14 +22,11 @@ import ContactPage from "../pages/ContactPage";
 import AdminLoginPage from "../pages/admin/AdminLoginPage";
 import AdminLayout from "../pages/admin/AdminLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
-
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminEnquiriesPage from "../pages/admin/AdminEnquiriesPage";
-
-import ProductDetailsPage from "../pages/ProductDetailsPage";
-
 import AdminSettingsPage from "../pages/admin/AdminSettingsPage";
+
 function AppRoutes() {
   return (
     <Routes>
@@ -43,17 +42,15 @@ function AppRoutes() {
 
       <Route path="/admin" element={<AdminLayout />}>
         {/* Dashboard */}
-
         <Route index element={<AdminDashboard />} />
 
         {/* Orders */}
-
         <Route path="orders" element={<AdminOrdersPage />} />
+
         {/* Products */}
-
         <Route path="products" element={<AdminProductsPage />} />
-        {/* Inventory */}
 
+        {/* Inventory */}
         <Route
           path="inventory"
           element={
@@ -64,11 +61,9 @@ function AppRoutes() {
         />
 
         {/* Enquiries */}
-
         <Route path="inquiries" element={<AdminEnquiriesPage />} />
 
         {/* Settings */}
-
         <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
 
@@ -83,7 +78,9 @@ function AppRoutes() {
       <Route path="/contact" element={<ContactPage />} />
 
       <Route path="/collection" element={<CollectionPage />} />
+
       <Route path="/product/:id" element={<ProductDetailsPage />} />
+
       {/* =================================================
           BAG
       ================================================= */}
@@ -99,6 +96,12 @@ function AppRoutes() {
       <Route path="/checkout/address" element={<AddressPage />} />
 
       <Route path="/checkout/payment" element={<PaymentPage />} />
+
+      {/* =================================================
+          ORDER SUCCESS
+      ================================================= */}
+
+      <Route path="/order-success" element={<OrderSuccessPage />} />
 
       {/* =================================================
           404
