@@ -22,7 +22,7 @@ import { useNavigate } from "react-router-dom";
 // 91 + 10 digit mobile number
 // =====================================================
 
-const SUPPORT_NUMBER = "919XXXXXXXXX";
+const SUPPORT_NUMBER = "+919522042144";
 
 function OrderTrackingPage() {
   const navigate = useNavigate();
