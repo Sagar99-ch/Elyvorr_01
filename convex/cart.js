@@ -279,3 +279,53 @@ export const clearCart = mutation({
     return true;
   },
 });
+
+// ==================================================
+// BUY NOW
+// Clears existing cart and adds only selected product
+// ==================================================
+
+export const buyNow = mutation({
+  args: {
+    sessionId: v.string(),
+    productId: v.id("products"),
+  },
+
+  handler: async (ctx, args) => {
+    // Check product
+    const product = await ctx.db.get(args.productId);
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    if (!product.isActive) {
+      throw new Error("This product is currently unavailable");
+    }
+
+    if (product.stock <= 0) {
+      throw new Error("This product is out of stock");
+    }
+
+    // Clear existing cart
+    const existingCartItems = await ctx.db
+      .query("cart")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    for (const item of existingCartItems) {
+      await ctx.db.delete(item._id);
+    }
+
+    // Add selected product
+    const cartId = await ctx.db.insert("cart", {
+      sessionId: args.sessionId,
+      productId: args.productId,
+      quantity: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return cartId;
+  },
+});

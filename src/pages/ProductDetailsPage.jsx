@@ -26,6 +26,23 @@ import Layout from "../components/layout/Layout";
 import { useCart } from "../context/CartContext";
 
 // =====================================================
+// GET / CREATE SESSION ID
+// =====================================================
+
+function getSessionId() {
+  const storageKey = "elyvorr_session_id";
+
+  let sessionId = localStorage.getItem(storageKey);
+
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem(storageKey, sessionId);
+  }
+
+  return sessionId;
+}
+
+// =====================================================
 // PRODUCT DETAILS PAGE
 // =====================================================
 
@@ -46,6 +63,9 @@ function ProductDetailsPage() {
   // ===================================================
 
   const { addToBag } = useCart();
+
+  // Buy Now uses a fresh cart containing only the selected product.
+  const buyNow = useMutation(api.cart.buyNow);
 
   // ===================================================
   // PRODUCT
@@ -200,8 +220,9 @@ function ProductDetailsPage() {
     setMessage("");
 
     try {
-      await addToBag({
-        id: product._id,
+      await buyNow({
+        sessionId: getSessionId(),
+        productId: product._id,
       });
 
       navigate("/checkout/address");
