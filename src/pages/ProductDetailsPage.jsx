@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -23,7 +23,24 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../../convex/_generated/api";
 import Layout from "../components/layout/Layout";
-import { useCart } from "../context/CartContext";
+
+// =====================================================
+// SESSION
+// =====================================================
+
+function getSessionId() {
+  const storageKey = "elyvorr_session_id";
+
+  let sessionId = localStorage.getItem(storageKey);
+
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+
+    localStorage.setItem(storageKey, sessionId);
+  }
+
+  return sessionId;
+}
 
 // =====================================================
 // PRODUCT DETAILS PAGE
@@ -35,17 +52,31 @@ function ProductDetailsPage() {
   const { id } = useParams();
 
   // ===================================================
-  // CART CONTEXT
-  // Single source of truth for the browser session/cart
+  // ALWAYS START PRODUCT PAGE FROM TOP
   // ===================================================
+  // Prevent React Router/browser from restoring the previous
+  // Collection page scroll position when opening a product.
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "instant",
+    });
+  }, [id]);
 
-  const { addToBag } = useCart();
+  const [sessionId] = useState(() => getSessionId());
 
   // ===================================================
   // PRODUCT
   // ===================================================
 
   const product = useQuery(api.products.getById, id ? { id } : "skip");
+
+  // ===================================================
+  // CART
+  // ===================================================
+
+  const addToCart = useMutation(api.cart.addItem);
 
   // ===================================================
   // STATE
@@ -167,8 +198,9 @@ function ProductDetailsPage() {
     setMessage("");
 
     try {
-      await addToBag({
-        id: product._id,
+      await addToCart({
+        sessionId,
+        productId: product._id,
       });
 
       setMessage("Added to your bag successfully.");
@@ -194,8 +226,9 @@ function ProductDetailsPage() {
     setMessage("");
 
     try {
-      await addToBag({
-        id: product._id,
+      await addToCart({
+        sessionId,
+        productId: product._id,
       });
 
       navigate("/checkout/address");
@@ -259,7 +292,7 @@ function ProductDetailsPage() {
                 className="
                   grid
                   gap-4
-                  sm:grid-cols-[90px_minmax(0,1fr)]
+                  sm:grid-cols-[110px_minmax(0,1fr)]
                   sm:gap-5
                 "
               >
@@ -291,7 +324,7 @@ function ProductDetailsPage() {
                       <img
                         src={image}
                         alt={`${product.name} view ${index + 1}`}
-                        className="h-full w-full object-contain p-4 sm:p-5 lg:p-6"
+                        className="h-full w-full object-contain p-6 sm:p-8 lg:p-10"
                       />
                     </button>
                   ))}
@@ -299,8 +332,8 @@ function ProductDetailsPage() {
 
                 {/* MAIN IMAGE */}
 
-                <div className="relative order-1 mx-auto w-full max-w-[520px] overflow-hidden rounded-[28px] border border-[#E5DED3] bg-[#F2EDE4] sm:order-2">
-                  <div className="aspect-[4/5] max-h-[560px] w-full">
+                <div className="relative overflow-hidden rounded-[28px] border border-[#E5DED3] bg-[#F2EDE4]">
+                  <div className="aspect-[4/5] w-full">
                     <img
                       src={galleryImages[activeImage] || product.image}
                       alt={product.name}
@@ -566,8 +599,8 @@ function ProductDetailsPage() {
 
                 <Trust
                   icon={<RotateCcw size={20} />}
-                  title="2 - 7 Days"
-                  text="Dlievery"
+                  title="7 Days"
+                  text="Return"
                 />
 
                 <Trust
