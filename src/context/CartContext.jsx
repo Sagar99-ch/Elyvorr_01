@@ -1,36 +1,53 @@
 import { createContext, useContext, useMemo, useState } from "react";
-
 import { useMutation, useQuery } from "convex/react";
-
 import { api } from "../../convex/_generated/api";
 
 const CartContext = createContext(null);
 
 // =====================================================
-// CREATE / GET UNIQUE BROWSER SESSION
+// UNIQUE CART SESSION
+// =====================================================
+//
+// IMPORTANT:
+// Old key "elyvorr_session_id" is intentionally NOT used.
+//
+// We use a new versioned key so that any previously
+// shared/corrupted session IDs are completely abandoned.
+//
+// Every browser/device gets its own UUID.
 // =====================================================
 
-function getSessionId() {
-  const storageKey = "elyvorr_session_id";
+const CART_SESSION_KEY = "elyvorr_cart_session_v2";
+
+function createNewSessionId() {
+  const newSessionId = crypto.randomUUID();
 
   try {
-    let sessionId = localStorage.getItem(storageKey);
+    localStorage.setItem(CART_SESSION_KEY, newSessionId);
+  } catch (error) {
+    console.warn("ELYVORR: Unable to save cart session.", error);
+  }
 
-    // Validate existing ID
-    if (sessionId && typeof sessionId === "string" && sessionId.length >= 20) {
-      return sessionId;
+  return newSessionId;
+}
+
+function getSessionId() {
+  try {
+    const existingSession = localStorage.getItem(CART_SESSION_KEY);
+
+    // Validate existing session
+    if (
+      existingSession &&
+      typeof existingSession === "string" &&
+      existingSession.length >= 20
+    ) {
+      return existingSession;
     }
 
-    // Create a completely new browser session
-    const newSessionId = crypto.randomUUID();
-
-    localStorage.setItem(storageKey, newSessionId);
-
-    return newSessionId;
+    return createNewSessionId();
   } catch (error) {
-    // Fallback if localStorage is unavailable
     console.warn(
-      "ELYVORR: localStorage unavailable. Using temporary session.",
+      "ELYVORR: localStorage unavailable. Creating temporary session.",
       error
     );
 
@@ -43,55 +60,59 @@ function getSessionId() {
 // =====================================================
 
 export function CartProvider({ children }) {
-  // =====================================================
+  // ===================================================
   // SESSION
-  // =====================================================
+  // ===================================================
 
   const [sessionId] = useState(() => getSessionId());
 
-  // IMPORTANT DEBUG
-  console.log("ELYVORR CART SESSION:", sessionId);
+  // Debug
+  console.log("ELYVORR CART SESSION V2:", sessionId);
 
-  // =====================================================
-  // CART
-  // =====================================================
+  // ===================================================
+  // CART QUERY
+  // ===================================================
 
   const cartItems = useQuery(api.cart.getCart, {
     sessionId,
   });
 
-  // =====================================================
+  // ===================================================
   // PRODUCTS
-  // =====================================================
+  // ===================================================
 
   const products = useQuery(api.products.getAll, {
     includeInactive: true,
   });
 
-  // =====================================================
+  // ===================================================
   // MUTATIONS
-  // =====================================================
+  // ===================================================
 
   const addItemMutation = useMutation(api.cart.addItem);
+
   const increaseMutation = useMutation(api.cart.increaseQuantity);
+
   const decreaseMutation = useMutation(api.cart.decreaseQuantity);
+
   const removeMutation = useMutation(api.cart.removeItem);
+
   const clearMutation = useMutation(api.cart.clearCart);
 
-  // =====================================================
+  // ===================================================
   // ADD TO BAG
-  // =====================================================
+  // ===================================================
 
   const addToBag = async (product) => {
-    if (!product?.id && !product?._id) {
-      console.error("ELYVORR: Product ID is missing");
+    const productId = product?.id || product?._id;
+
+    if (!productId) {
+      console.error("ELYVORR: Product ID is missing.");
       return;
     }
 
-    const productId = product.id || product._id;
-
     try {
-      console.log("ELYVORR: Adding product to session:", {
+      console.log("ELYVORR: ADD TO BAG", {
         sessionId,
         productId,
       });
@@ -101,14 +122,15 @@ export function CartProvider({ children }) {
         productId,
       });
     } catch (error) {
-      console.error("ELYVORR: Failed to add product to bag:", error);
+      console.error("ELYVORR: Failed to add product:", error);
+
       throw error;
     }
   };
 
-  // =====================================================
-  // INCREASE QUANTITY
-  // =====================================================
+  // ===================================================
+  // INCREASE
+  // ===================================================
 
   const increaseQuantity = async (productId) => {
     try {
@@ -118,13 +140,14 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to increase quantity:", error);
+
       throw error;
     }
   };
 
-  // =====================================================
-  // DECREASE QUANTITY
-  // =====================================================
+  // ===================================================
+  // DECREASE
+  // ===================================================
 
   const decreaseQuantity = async (productId) => {
     try {
@@ -134,13 +157,14 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to decrease quantity:", error);
+
       throw error;
     }
   };
 
-  // =====================================================
-  // REMOVE FROM BAG
-  // =====================================================
+  // ===================================================
+  // REMOVE
+  // ===================================================
 
   const removeFromBag = async (productId) => {
     try {
@@ -150,13 +174,14 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to remove product:", error);
+
       throw error;
     }
   };
 
-  // =====================================================
+  // ===================================================
   // CLEAR BAG
-  // =====================================================
+  // ===================================================
 
   const clearBag = async () => {
     try {
@@ -165,13 +190,14 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to clear bag:", error);
+
       throw error;
     }
   };
 
-  // =====================================================
+  // ===================================================
   // ENRICH CART ITEMS
-  // =====================================================
+  // ===================================================
 
   const enrichedCartItems = useMemo(() => {
     if (!cartItems || !products) {
@@ -194,11 +220,8 @@ export function CartProvider({ children }) {
 
         reviews: item.reviews ?? product?.reviews,
 
-        // Keep old price only for display
         oldPrice: item.oldPrice ?? product?.oldPrice,
 
-        // NEW:
-        // Admin-defined Order Summary discount %
         discount:
           item.discount !== undefined
             ? item.discount
@@ -207,9 +230,9 @@ export function CartProvider({ children }) {
     });
   }, [cartItems, products]);
 
-  // =====================================================
+  // ===================================================
   // TOTAL ITEMS
-  // =====================================================
+  // ===================================================
 
   const totalItems = useMemo(() => {
     return enrichedCartItems.reduce(
@@ -218,11 +241,9 @@ export function CartProvider({ children }) {
     );
   }, [enrichedCartItems]);
 
-  // =====================================================
+  // ===================================================
   // SUBTOTAL
-  //
-  // Selling price remains unchanged.
-  // =====================================================
+  // ===================================================
 
   const subtotal = useMemo(() => {
     return enrichedCartItems.reduce(
@@ -232,25 +253,9 @@ export function CartProvider({ children }) {
     );
   }, [enrichedCartItems]);
 
-  // =====================================================
-  // ORDER DISCOUNT
-  //
-  // IMPORTANT:
-  // This uses ADMIN-DEFINED product discount.
-  //
-  // Example:
-  //
-  // Product price = ₹999
-  // Admin discount = 10%
-  // Quantity = 1
-  //
-  // Discount = ₹99.90
-  //
-  // Quantity = 2
-  // Discount = ₹199.80
-  //
-  // oldPrice is NOT used here.
-  // =====================================================
+  // ===================================================
+  // DISCOUNT
+  // ===================================================
 
   const discount = useMemo(() => {
     return enrichedCartItems.reduce((total, item) => {
@@ -269,14 +274,20 @@ export function CartProvider({ children }) {
     }, 0);
   }, [enrichedCartItems]);
 
-  // =====================================================
+  // ===================================================
+  // LOADING
+  // ===================================================
+
+  const isLoading = cartItems === undefined || products === undefined;
+
+  // ===================================================
   // CONTEXT VALUE
-  // =====================================================
+  // ===================================================
 
   const value = {
     cartItems: enrichedCartItems,
 
-    isLoading: cartItems === undefined || products === undefined,
+    isLoading,
 
     addToBag,
 
@@ -294,13 +305,13 @@ export function CartProvider({ children }) {
 
     discount,
 
-    // Useful for debugging / checkout
+    // Useful for checkout/debugging
     sessionId,
   };
 
-  // =====================================================
+  // ===================================================
   // PROVIDER
-  // =====================================================
+  // ===================================================
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
