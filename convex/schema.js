@@ -11,6 +11,12 @@ export default defineSchema({
     volume: v.string(),
     price: v.number(),
     oldPrice: v.optional(v.number()),
+
+    // NEW
+    // Order Summary discount percentage
+    // Example: 10 = 10% discount
+    discount: v.optional(v.number()),
+
     reviews: v.number(),
     badge: v.optional(v.string()),
     image: v.string(),
@@ -57,10 +63,8 @@ export default defineSchema({
   orders: defineTable({
     sessionId: v.string(),
     orderNumber: v.string(),
-
     customerName: v.string(),
     mobile: v.string(),
-
     address: v.string(),
     city: v.string(),
     state: v.string(),
@@ -96,7 +100,6 @@ export default defineSchema({
     // -----------------------------------------------------
 
     paymentStatus: v.string(),
-
     paymentId: v.optional(v.string()),
 
     // Razorpay Order ID

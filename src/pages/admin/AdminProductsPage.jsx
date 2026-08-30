@@ -56,6 +56,10 @@ function AdminProductsPage() {
     volume: "",
     price: "",
     oldPrice: "",
+
+    // Order Summary discount percentage
+    discount: "",
+
     reviews: "0",
     badge: "",
 
@@ -136,6 +140,10 @@ function AdminProductsPage() {
       volume: product.volume ?? "",
       price: String(product.price ?? ""),
       oldPrice: product.oldPrice !== undefined ? String(product.oldPrice) : "",
+
+      // Order Summary discount percentage
+      discount: product.discount !== undefined ? String(product.discount) : "",
+
       reviews: String(product.reviews ?? 0),
       badge: product.badge ?? "",
 
@@ -187,6 +195,14 @@ function AdminProductsPage() {
       return;
     }
 
+    if (
+      form.discount !== "" &&
+      (Number(form.discount) < 0 || Number(form.discount) > 100)
+    ) {
+      setError("Order discount must be between 0 and 100%.");
+      return;
+    }
+
     if (form.stock === "" || Number(form.stock) < 0) {
       setError("Enter a valid stock.");
       return;
@@ -210,6 +226,9 @@ function AdminProductsPage() {
         price: Number(form.price),
 
         oldPrice: form.oldPrice !== "" ? Number(form.oldPrice) : undefined,
+
+        // Order Summary discount percentage
+        discount: form.discount !== "" ? Number(form.discount) : 0,
 
         reviews: form.reviews !== "" ? Number(form.reviews) : 0,
 
@@ -759,6 +778,30 @@ function AdminProductsPage() {
                     className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
                   />
                 </div>
+              </div>
+
+              {/* ORDER DISCOUNT */}
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                  Order Discount (%)
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  name="discount"
+                  value={form.discount}
+                  onChange={handleChange}
+                  placeholder="e.g. 10"
+                  className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-[#FCFBF8] px-4 text-sm outline-none focus:border-[#C9A96E]"
+                />
+
+                <p className="mt-2 text-[10px] text-[#999]">
+                  This discount is applied separately in the Order Summary.
+                </p>
               </div>
 
               {/* REVIEWS + BADGE */}
