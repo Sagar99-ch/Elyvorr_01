@@ -32,7 +32,6 @@ function ProductCard({ product }) {
         duration-500
         hover:-translate-y-1
         hover:shadow-[0_20px_50px_rgba(30,25,20,0.08)]
-
         sm:rounded-[24px]
       "
     >
@@ -46,20 +45,20 @@ function ProductCard({ product }) {
         className="
           relative
           block
-          h-[220px]
+          h-[300px]
           w-full
           overflow-hidden
           bg-[#F8F5F0]
           text-left
           outline-none
-
-          sm:h-[280px]
-
+          sm:h-[340px]
           lg:h-[380px]
         "
         aria-label={`View ${product.name} details`}
       >
-        {/* BADGE */}
+        {/* =================================================
+            BADGE
+        ================================================= */}
 
         {product.badge && (
           <span
@@ -77,7 +76,6 @@ function ProductCard({ product }) {
               uppercase
               tracking-[1.5px]
               text-white
-
               sm:left-5
               sm:top-5
               sm:px-4
@@ -90,7 +88,9 @@ function ProductCard({ product }) {
           </span>
         )}
 
-        {/* WISHLIST */}
+        {/* =================================================
+            WISHLIST
+        ================================================= */}
 
         <span
           role="button"
@@ -120,12 +120,10 @@ function ProductCard({ product }) {
             text-[#555]
             shadow-sm
             transition
-
             sm:right-5
             sm:top-5
             sm:h-11
             sm:w-11
-
             hover:bg-[#181818]
             hover:text-white
           "
@@ -136,25 +134,52 @@ function ProductCard({ product }) {
 
         {/* =================================================
             PRODUCT IMAGE
+
+            IMPORTANT:
+            object-contain is used on ALL screen sizes.
+            This prevents mobile image cropping/zooming.
         ================================================= */}
 
         {product.image ? (
-          <img
-            src={product.image}
-            alt={product.name}
+          <div
             className="
+              flex
               h-full
               w-full
-              object-cover
-              transition-transform
-              duration-700
-              group-hover:scale-[1.03]
-
-              lg:object-contain
+              items-center
+              justify-center
+              p-4
+              sm:p-5
+              lg:p-6
             "
-          />
+          >
+            <img
+              src={product.image}
+              alt={product.name}
+              loading="lazy"
+              className="
+                block
+                h-full
+                w-full
+                object-contain
+                object-center
+                transition-transform
+                duration-700
+                group-hover:scale-[1.03]
+              "
+            />
+          </div>
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center">
+          <div
+            className="
+              flex
+              h-full
+              w-full
+              flex-col
+              items-center
+              justify-center
+            "
+          >
             <div
               className="
                 h-40
@@ -162,13 +187,23 @@ function ProductCard({ product }) {
                 rounded-2xl
                 bg-[#C9A96E]
                 shadow-lg
-
                 sm:h-56
                 sm:w-28
               "
             />
 
-            <span className="mt-4 text-[10px] font-semibold tracking-[3px] text-[#555] sm:mt-5 sm:text-[11px] sm:tracking-[4px]">
+            <span
+              className="
+                mt-4
+                text-[10px]
+                font-semibold
+                tracking-[3px]
+                text-[#555]
+                sm:mt-5
+                sm:text-[11px]
+                sm:tracking-[4px]
+              "
+            >
               ELYVORR
             </span>
           </div>
@@ -201,7 +236,6 @@ function ProductCard({ product }) {
             shadow-lg
             transition-all
             duration-500
-
             lg:flex
             group-hover:translate-y-0
             group-hover:opacity-100
@@ -225,13 +259,13 @@ function ProductCard({ product }) {
           p-4
           text-left
           outline-none
-
           sm:p-5
-
           lg:p-6
         "
       >
-        {/* NAME */}
+        {/* =================================================
+            NAME
+        ================================================= */}
 
         <h3
           className="
@@ -240,16 +274,16 @@ function ProductCard({ product }) {
             font-semibold
             leading-tight
             text-[#181818]
-
             sm:text-[24px]
-
             lg:text-[28px]
           "
         >
           {product.name}
         </h3>
 
-        {/* VOLUME */}
+        {/* =================================================
+            VOLUME
+        ================================================= */}
 
         <p
           className="
@@ -257,14 +291,15 @@ function ProductCard({ product }) {
             text-[11px]
             font-medium
             text-[#777]
-
             sm:text-sm
           "
         >
           Eau de Parfum • {product.volume || "50ml"}
         </p>
 
-        {/* RATING */}
+        {/* =================================================
+            RATING
+        ================================================= */}
 
         <div className="mt-3 flex items-center gap-2 sm:mt-4">
           <div className="flex gap-0.5 text-sm text-[#C9A96E] sm:text-base">
@@ -276,15 +311,42 @@ function ProductCard({ product }) {
           </span>
         </div>
 
-        {/* PRICE */}
+        {/* =================================================
+            PRICE
+        ================================================= */}
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5 sm:gap-3">
-          <span className="text-[22px] font-bold text-[#181818] sm:text-[25px] lg:text-[27px]">
+        <div
+          className="
+            mt-4
+            flex
+            flex-wrap
+            items-center
+            gap-2
+            sm:mt-5
+            sm:gap-3
+          "
+        >
+          <span
+            className="
+              text-[22px]
+              font-bold
+              text-[#181818]
+              sm:text-[25px]
+              lg:text-[27px]
+            "
+          >
             ₹{product.price.toLocaleString("en-IN")}
           </span>
 
           {product.oldPrice && (
-            <span className="text-xs text-[#999] line-through sm:text-sm">
+            <span
+              className="
+                text-xs
+                text-[#999]
+                line-through
+                sm:text-sm
+              "
+            >
               ₹{product.oldPrice.toLocaleString("en-IN")}
             </span>
           )}
@@ -299,7 +361,6 @@ function ProductCard({ product }) {
                 text-[9px]
                 font-semibold
                 text-[#2F8F46]
-
                 sm:text-[10px]
               "
             >
@@ -324,12 +385,10 @@ function ProductCard({ product }) {
             tracking-[1.5px]
             text-[#999]
             transition
-
             sm:mt-5
             sm:gap-2
             sm:text-[10px]
             sm:tracking-[1.8px]
-
             group-hover:text-[#C9A96E]
           "
         >

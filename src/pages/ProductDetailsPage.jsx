@@ -566,8 +566,8 @@ function ProductDetailsPage() {
 
                 <Trust
                   icon={<RotateCcw size={20} />}
-                  title="7 Days"
-                  text="Return"
+                  title="2 - 7 Days"
+                  text="Dlievery"
                 />
 
                 <Trust
