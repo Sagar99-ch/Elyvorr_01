@@ -565,17 +565,16 @@ function OrderTrackingPage() {
                   {/* CALL SUPPORT */}
 
                   <a
-                    href={phoneLink}
+                    href="tel:+919522042144"
                     className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-xs font-semibold uppercase tracking-[1.5px] text-[#181818] transition hover:bg-[#C9A96E] hover:text-white"
                   >
                     <Phone size={17} />
                     Call Support
                   </a>
-
                   {/* WHATSAPP */}
 
                   <a
-                    href={whatsappLink}
+                    href="https://wa.me/919522042144"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-xs font-semibold uppercase tracking-[1.5px] text-white transition hover:border-[#C9A96E] hover:bg-[#C9A96E]"
