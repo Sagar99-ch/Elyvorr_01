@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState } from "react";
 
 import { useMutation, useQuery } from "convex/react";
+
 import { api } from "../../convex/_generated/api";
 
 const CartContext = createContext(null);
@@ -82,24 +83,25 @@ export function CartProvider({ children }) {
   // =====================================================
 
   const addToBag = async (product) => {
-    if (!product?.id) {
+    if (!product?.id && !product?._id) {
       console.error("ELYVORR: Product ID is missing");
       return;
     }
 
+    const productId = product.id || product._id;
+
     try {
       console.log("ELYVORR: Adding product to session:", {
         sessionId,
-        productId: product.id,
+        productId,
       });
 
       await addItemMutation({
         sessionId,
-        productId: product.id,
+        productId,
       });
     } catch (error) {
       console.error("ELYVORR: Failed to add product to bag:", error);
-
       throw error;
     }
   };
@@ -116,7 +118,6 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to increase quantity:", error);
-
       throw error;
     }
   };
@@ -133,7 +134,6 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to decrease quantity:", error);
-
       throw error;
     }
   };
@@ -150,7 +150,6 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to remove product:", error);
-
       throw error;
     }
   };
@@ -166,7 +165,6 @@ export function CartProvider({ children }) {
       });
     } catch (error) {
       console.error("ELYVORR: Failed to clear bag:", error);
-
       throw error;
     }
   };
@@ -196,7 +194,15 @@ export function CartProvider({ children }) {
 
         reviews: item.reviews ?? product?.reviews,
 
+        // Keep old price only for display
         oldPrice: item.oldPrice ?? product?.oldPrice,
+
+        // NEW:
+        // Admin-defined Order Summary discount %
+        discount:
+          item.discount !== undefined
+            ? item.discount
+            : (product?.discount ?? 0),
       };
     });
   }, [cartItems, products]);
@@ -214,6 +220,8 @@ export function CartProvider({ children }) {
 
   // =====================================================
   // SUBTOTAL
+  //
+  // Selling price remains unchanged.
   // =====================================================
 
   const subtotal = useMemo(() => {
@@ -225,29 +233,41 @@ export function CartProvider({ children }) {
   }, [enrichedCartItems]);
 
   // =====================================================
-  // DISCOUNT
+  // ORDER DISCOUNT
+  //
+  // IMPORTANT:
+  // This uses ADMIN-DEFINED product discount.
+  //
+  // Example:
+  //
+  // Product price = ₹999
+  // Admin discount = 10%
+  // Quantity = 1
+  //
+  // Discount = ₹99.90
+  //
+  // Quantity = 2
+  // Discount = ₹199.80
+  //
+  // oldPrice is NOT used here.
   // =====================================================
 
   const discount = useMemo(() => {
     return enrichedCartItems.reduce((total, item) => {
-      const oldPrice = Number(item.oldPrice || 0);
-
       const currentPrice = Number(item.price || 0);
 
       const quantity = Number(item.quantity || 0);
 
-      const savingPerItem =
-        oldPrice > currentPrice ? oldPrice - currentPrice : 0;
+      const discountPercent = Math.min(
+        100,
+        Math.max(0, Number(item.discount || 0))
+      );
 
-      return total + savingPerItem * quantity;
+      const discountPerItem = (currentPrice * discountPercent) / 100;
+
+      return total + discountPerItem * quantity;
     }, 0);
   }, [enrichedCartItems]);
-
-  // =====================================================
-  // LOADING
-  // =====================================================
-
-  const isLoading = cartItems === undefined || products === undefined;
 
   // =====================================================
   // CONTEXT VALUE
@@ -256,7 +276,7 @@ export function CartProvider({ children }) {
   const value = {
     cartItems: enrichedCartItems,
 
-    isLoading,
+    isLoading: cartItems === undefined || products === undefined,
 
     addToBag,
 
