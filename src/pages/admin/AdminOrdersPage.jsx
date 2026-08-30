@@ -88,8 +88,10 @@ function AdminOrdersPage() {
   // =====================================================
 
   const orderStatusOptions = [
+    "pending",
     "confirmed",
     "processing",
+    "packed",
     "shipped",
     "delivered",
     "cancelled",
@@ -270,12 +272,18 @@ function AdminOrdersPage() {
   // =====================================================
 
   const getOrderStatusStyle = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
+      case "pending":
+        return "bg-[#FFF6E5] text-[#B78325]";
+
       case "confirmed":
         return "bg-[#EAF7ED] text-[#2F8F46]";
 
       case "processing":
         return "bg-[#F3EEFF] text-[#7553B3]";
+
+      case "packed":
+        return "bg-[#F6F0E5] text-[#9A7137]";
 
       case "shipped":
         return "bg-[#EEF7F7] text-[#347C7C]";
@@ -296,7 +304,14 @@ function AdminOrdersPage() {
   // =====================================================
 
   const handleStatusChange = async (order, newStatus) => {
-    if (order.orderStatus === newStatus) {
+    const normalizedStatus = String(newStatus || "")
+      .trim()
+      .toLowerCase();
+    const currentStatus = String(order.orderStatus || "")
+      .trim()
+      .toLowerCase();
+
+    if (!normalizedStatus || currentStatus === normalizedStatus) {
       return;
     }
 
@@ -306,10 +321,10 @@ function AdminOrdersPage() {
     try {
       await updateOrderStatus({
         orderId: order._id,
-        orderStatus: newStatus,
+        orderStatus: normalizedStatus,
       });
     } catch (err) {
-      console.error(err);
+      console.error("ELYVORR: Failed to update order status:", err);
 
       setError(err?.message || "Unable to update order status.");
     } finally {
@@ -807,7 +822,9 @@ function DateOrderGroup({
                 <td className="px-5 py-4">
                   <div className="relative w-fit">
                     <select
-                      value={order.orderStatus}
+                      value={String(
+                        order.orderStatus || "pending"
+                      ).toLowerCase()}
                       disabled={updatingOrder === order._id}
                       onChange={(event) =>
                         onStatusChange(order, event.target.value)
@@ -986,7 +1003,7 @@ function OrderDetailsModal({
                     order.orderStatus
                   )}`}
                 >
-                  {order.orderStatus}
+                  {String(order.orderStatus || "pending").toUpperCase()}
                 </span>
               </div>
 

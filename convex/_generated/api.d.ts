@@ -14,6 +14,7 @@ import type * as adminDashboard from "../adminDashboard.js";
 import type * as cart from "../cart.js";
 import type * as contacts from "../contacts.js";
 import type * as http from "../http.js";
+import type * as orderTracking from "../orderTracking.js";
 import type * as orders from "../orders.js";
 import type * as payment from "../payment.js";
 import type * as paymentMutations from "../paymentMutations.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   cart: typeof cart;
   contacts: typeof contacts;
   http: typeof http;
+  orderTracking: typeof orderTracking;
   orders: typeof orders;
   payment: typeof payment;
   paymentMutations: typeof paymentMutations;

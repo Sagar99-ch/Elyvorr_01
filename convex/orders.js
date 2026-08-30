@@ -9,7 +9,6 @@ import { v } from "convex/values";
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString().slice(-8);
-
   const random = Math.floor(1000 + Math.random() * 9000);
 
   return `ELY-${timestamp}-${random}`;
@@ -66,90 +65,32 @@ export const createPendingOrder = mutation({
     const orderItems = [];
 
     let subtotal = 0;
-
     let discount = 0;
-
     let removedInvalidItem = false;
 
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
 
-      /**
-       * ----------------------------------------------
-       * PRODUCT DOES NOT EXIST
-       * ----------------------------------------------
-       */
-
       if (!product) {
         await ctx.db.delete(cartItem._id);
-
         removedInvalidItem = true;
-
         continue;
       }
-
-      /**
-       * ----------------------------------------------
-       * PRODUCT INACTIVE
-       * ----------------------------------------------
-       */
 
       if (!product.isActive) {
         await ctx.db.delete(cartItem._id);
-
         removedInvalidItem = true;
-
         continue;
       }
-
-      /**
-       * ----------------------------------------------
-       * STOCK CHECK
-       * ----------------------------------------------
-       */
 
       if (product.stock < cartItem.quantity) {
         throw new Error(`${product.name} does not have enough stock.`);
       }
 
-      /**
-       * ----------------------------------------------
-       * SELLING PRICE
-       * ----------------------------------------------
-       */
-
       const sellingPrice = Number(product.price || 0);
-
       const quantity = Number(cartItem.quantity || 0);
 
-      /**
-       * ----------------------------------------------
-       * SUBTOTAL
-       *
-       * Subtotal is the actual selling price.
-       *
-       * Example:
-       * MRP       = 399
-       * Sale      = 299
-       * Quantity  = 1
-       *
-       * Subtotal = 299
-       * ----------------------------------------------
-       */
-
       subtotal += sellingPrice * quantity;
-
-      /**
-       * ----------------------------------------------
-       * LIVE DISCOUNT
-       *
-       * Example:
-       * oldPrice = 399
-       * price    = 299
-       *
-       * discount = 100
-       * ----------------------------------------------
-       */
 
       const oldPrice = Number(product.oldPrice || 0);
 
@@ -157,27 +98,12 @@ export const createPendingOrder = mutation({
         discount += (oldPrice - sellingPrice) * quantity;
       }
 
-      /**
-       * ----------------------------------------------
-       * ORDER ITEM
-       *
-       * IMPORTANT:
-       * oldPrice intentionally NOT stored here
-       * because orders.items schema does not allow it.
-       * ----------------------------------------------
-       */
-
       orderItems.push({
         productId: product._id,
-
         name: product.name,
-
         volume: product.volume,
-
         price: sellingPrice,
-
-        quantity: quantity,
-
+        quantity,
         image: product.image,
       });
     }
@@ -194,18 +120,6 @@ export const createPendingOrder = mutation({
       );
     }
 
-    /**
-     * ================================================
-     * IF SOME PRODUCTS WERE REMOVED
-     * ================================================
-     *
-     * Do not create an order with a changed cart
-     * silently.
-     *
-     * User should review the updated bag first.
-     * ================================================
-     */
-
     if (removedInvalidItem) {
       throw new Error(
         "One or more products in your bag are no longer available. They were removed from your bag. Please review your bag and try again."
@@ -216,36 +130,10 @@ export const createPendingOrder = mutation({
      * ================================================
      * ORDER TOTALS
      * ================================================
-     *
-     * IMPORTANT:
-     *
-     * subtotal = actual selling price
-     * discount = MRP saving for display
-     * shipping = ₹1
-     * GST      = ₹0
-     *
-     * Customer pays:
-     *
-     * subtotal + shipping
-     *
-     * NOT:
-     * subtotal - discount
-     *
-     * Example:
-     *
-     * MRP       ₹399
-     * Sale      ₹299
-     * Discount  ₹100
-     * Shipping  ₹1
-     *
-     * Final     ₹300
-     * ================================================
      */
 
     const shipping = 1;
-
     const gst = 0;
-
     const total = subtotal + shipping + gst;
 
     /**
@@ -255,7 +143,6 @@ export const createPendingOrder = mutation({
      */
 
     const orderNumber = generateOrderNumber();
-
     const now = Date.now();
 
     const orderId = await ctx.db.insert("orders", {
@@ -264,27 +151,19 @@ export const createPendingOrder = mutation({
       orderNumber,
 
       customerName: address.fullName,
-
       mobile: address.mobile,
 
       address: address.address,
-
       city: address.city,
-
       state: address.state,
-
       pincode: address.pincode,
 
       items: orderItems,
 
       subtotal,
-
       discount,
-
       shipping,
-
       gst,
-
       total,
 
       paymentStatus: "pending",
@@ -292,7 +171,6 @@ export const createPendingOrder = mutation({
       orderStatus: "pending",
 
       createdAt: now,
-
       updatedAt: now,
     });
 
@@ -304,19 +182,12 @@ export const createPendingOrder = mutation({
 
     return {
       orderId,
-
       orderNumber,
-
       subtotal,
-
       discount,
-
       shipping,
-
       gst,
-
       total,
-
       itemCount: orderItems.reduce((count, item) => count + item.quantity, 0),
     };
   },
@@ -337,7 +208,7 @@ export const getOrderByNumber = query({
     return await ctx.db
       .query("orders")
       .withIndex("by_order_number", (q) =>
-        q.eq("orderNumber", args.orderNumber)
+        q.eq("orderNumber", args.orderNumber.trim())
       )
       .unique();
   },
@@ -388,7 +259,6 @@ export const getOrdersBySession = query({
 export const markOrderPaid = mutation({
   args: {
     orderId: v.id("orders"),
-
     paymentId: v.string(),
   },
 
@@ -402,18 +272,14 @@ export const markOrderPaid = mutation({
     if (order.paymentStatus === "paid") {
       return {
         success: true,
-
         message: "Order is already paid.",
       };
     }
 
     await ctx.db.patch(args.orderId, {
       paymentStatus: "paid",
-
       orderStatus: "confirmed",
-
       paymentId: args.paymentId,
-
       updatedAt: Date.now(),
     });
 
@@ -447,9 +313,7 @@ export const cancelOrder = mutation({
 
     await ctx.db.patch(args.orderId, {
       paymentStatus: "cancelled",
-
       orderStatus: "cancelled",
-
       updatedAt: Date.now(),
     });
 
@@ -477,12 +341,16 @@ export const getAllOrders = query({
  * ==================================================
  * ADMIN — UPDATE ORDER STATUS
  * ==================================================
+ *
+ * Customer tracking page is connected to the same
+ * order record, so changing the status here will
+ * automatically update the tracking page.
+ * ==================================================
  */
 
 export const updateOrderStatus = mutation({
   args: {
     orderId: v.id("orders"),
-
     orderStatus: v.string(),
   },
 
@@ -493,27 +361,158 @@ export const updateOrderStatus = mutation({
       throw new Error("Order not found.");
     }
 
+    /**
+     * Normalize status
+     *
+     * Example:
+     * "PACKED"     -> "packed"
+     * "Packed"     -> "packed"
+     * " shipped "  -> "shipped"
+     */
+
+    const normalizedStatus = String(args.orderStatus || "")
+      .trim()
+      .toLowerCase();
+
+    /**
+     * Allowed order statuses
+     */
+
     const allowedStatuses = [
       "pending",
       "confirmed",
       "processing",
+      "packed",
       "shipped",
       "delivered",
       "cancelled",
     ];
 
-    if (!allowedStatuses.includes(args.orderStatus)) {
+    if (!allowedStatuses.includes(normalizedStatus)) {
       throw new Error("Invalid order status.");
     }
 
-    await ctx.db.patch(args.orderId, {
-      orderStatus: args.orderStatus,
+    /**
+     * Update order
+     */
 
+    await ctx.db.patch(args.orderId, {
+      orderStatus: normalizedStatus,
       updatedAt: Date.now(),
     });
 
     return {
       success: true,
+      orderId: args.orderId,
+      orderStatus: normalizedStatus,
+    };
+  },
+});
+
+/**
+ * ==================================================
+ * CUSTOMER — TRACK ORDER BY ORDER NUMBER
+ * ==================================================
+ *
+ * Used by the public customer tracking page.
+ *
+ * IMPORTANT:
+ * This query is reactive.
+ *
+ * Admin changes:
+ *
+ * CONFIRMED
+ *     ↓
+ * PACKED
+ *     ↓
+ * SHIPPED
+ *     ↓
+ * DELIVERED
+ *
+ * Customer tracking page automatically receives
+ * the updated order status through Convex.
+ *
+ * Sensitive customer information such as:
+ * - mobile
+ * - address
+ * - city
+ * - state
+ * - pincode
+ * - sessionId
+ *
+ * is intentionally NOT returned.
+ * ==================================================
+ */
+
+export const getOrderTrackingByNumber = query({
+  args: {
+    orderNumber: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const orderNumber = args.orderNumber.trim();
+
+    if (!orderNumber) {
+      return null;
+    }
+
+    /**
+     * Find order
+     */
+
+    const order = await ctx.db
+      .query("orders")
+      .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+      .unique();
+
+    if (!order) {
+      return null;
+    }
+
+    /**
+     * Return customer-safe tracking data
+     */
+
+    return {
+      _id: order._id,
+
+      orderNumber: order.orderNumber,
+
+      /**
+       * PAYMENT
+       */
+
+      paymentStatus: order.paymentStatus,
+      paymentId: order.paymentId,
+
+      /**
+       * ORDER STATUS
+       */
+
+      orderStatus: order.orderStatus,
+
+      /**
+       * PAYMENT SUMMARY
+       */
+
+      subtotal: order.subtotal,
+      discount: order.discount,
+      shipping: order.shipping,
+      gst: order.gst,
+      total: order.total,
+
+      /**
+       * PRODUCTS
+       */
+
+      items: order.items,
+
+      /**
+       * TIMESTAMPS
+       */
+
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
     };
   },
 });
@@ -540,7 +539,6 @@ export const deleteOrder = mutation({
 
     return {
       success: true,
-
       message: "Order deleted successfully.",
     };
   },

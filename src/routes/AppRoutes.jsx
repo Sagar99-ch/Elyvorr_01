@@ -14,6 +14,7 @@ import CollectionPage from "../pages/CollectionPage";
 import ContactPage from "../pages/ContactPage";
 import ProductDetailsPage from "../pages/ProductDetailsPage";
 import OrderSuccessPage from "../pages/OrderSuccessPage";
+import TrackOrderPage from "../pages/TrackOrderPage";
 
 // =====================================================
 // ADMIN PAGES
@@ -102,6 +103,12 @@ function AppRoutes() {
       ================================================= */}
 
       <Route path="/order-success" element={<OrderSuccessPage />} />
+
+      {/* =================================================
+          TRACK ORDER
+      ================================================= */}
+
+      <Route path="/track-order" element={<TrackOrderPage />} />
 
       {/* =================================================
           404
