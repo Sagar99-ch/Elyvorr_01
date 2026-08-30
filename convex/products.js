@@ -49,8 +49,10 @@ export const add = mutation({
     price: v.number(),
     oldPrice: v.optional(v.number()),
 
-    // NEW:
-    // Order Summary discount percentage
+    // =================================================
+    // ORDER DISCOUNT
+    // Example: 10 = 10%
+    // =================================================
     discount: v.optional(v.number()),
 
     reviews: v.number(),
@@ -66,7 +68,10 @@ export const add = mutation({
   },
 
   handler: async (ctx, args) => {
-    // Validate discount
+    // =================================================
+    // VALIDATE DISCOUNT
+    // =================================================
+
     if (
       args.discount !== undefined &&
       (args.discount < 0 || args.discount > 100)
@@ -74,25 +79,27 @@ export const add = mutation({
       throw new Error("Discount must be between 0 and 100.");
     }
 
+    // =================================================
+    // CREATE PRODUCT
+    // =================================================
+
     const productId = await ctx.db.insert("products", {
       name: args.name,
       volume: args.volume,
       price: args.price,
       oldPrice: args.oldPrice,
 
-      // NEW
+      // IMPORTANT
       discount: args.discount,
 
       reviews: args.reviews,
       badge: args.badge,
 
-      // Main image
       image: args.image,
-
-      // Additional images
       images: args.images,
 
       stock: args.stock,
+
       isActive: true,
       createdAt: Date.now(),
     });
@@ -115,17 +122,16 @@ export const update = mutation({
     price: v.optional(v.number()),
     oldPrice: v.optional(v.number()),
 
-    // NEW:
-    // Order Summary discount percentage
+    // =================================================
+    // ORDER DISCOUNT
+    // Example: 10 = 10%
+    // =================================================
     discount: v.optional(v.number()),
 
     reviews: v.optional(v.number()),
     badge: v.optional(v.string()),
 
-    // Main product image
     image: v.optional(v.string()),
-
-    // Additional product images
     images: v.optional(v.array(v.string())),
 
     stock: v.optional(v.number()),
@@ -135,13 +141,20 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
 
+    // =================================================
+    // CHECK PRODUCT
+    // =================================================
+
     const existingProduct = await ctx.db.get(id);
 
     if (!existingProduct) {
       throw new Error("Product not found");
     }
 
-    // Validate discount
+    // =================================================
+    // VALIDATE DISCOUNT
+    // =================================================
+
     if (
       updates.discount !== undefined &&
       (updates.discount < 0 || updates.discount > 100)
@@ -149,9 +162,17 @@ export const update = mutation({
       throw new Error("Discount must be between 0 and 100.");
     }
 
+    // =================================================
+    // REMOVE UNDEFINED VALUES
+    // =================================================
+
     const cleanUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, value]) => value !== undefined)
     );
+
+    // =================================================
+    // UPDATE
+    // =================================================
 
     await ctx.db.patch(id, cleanUpdates);
 
@@ -163,8 +184,7 @@ export const update = mutation({
  * ==================================================
  * DELETE / REMOVE PRODUCT
  *
- * IMPORTANT:
- * Soft delete is used here.
+ * Soft delete
  * ==================================================
  */
 export const remove = mutation({
@@ -179,7 +199,6 @@ export const remove = mutation({
       throw new Error("Product not found");
     }
 
-    // Soft delete
     await ctx.db.patch(args.id, {
       isActive: false,
     });

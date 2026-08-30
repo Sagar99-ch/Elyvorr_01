@@ -55,6 +55,12 @@ function BagPage() {
 
         oldPrice: item.oldPrice ?? product?.oldPrice ?? 0,
 
+        // Admin-defined order discount percentage
+        discount:
+          item.discount !== undefined
+            ? item.discount
+            : (product?.discount ?? 0),
+
         name: item.name ?? product?.name ?? "Product",
 
         volume: item.volume ?? product?.volume ?? "",
@@ -81,15 +87,19 @@ function BagPage() {
 
   const discount = useMemo(() => {
     return enrichedCartItems.reduce((total, item) => {
-      const oldPrice = Number(item.oldPrice || 0);
       const currentPrice = Number(item.price || 0);
       const quantity = Number(item.quantity || 0);
 
-      if (oldPrice > currentPrice) {
-        return total + (oldPrice - currentPrice) * quantity;
-      }
+      // Discount is set by Admin per product.
+      // Example: ₹299 with 1% discount = ₹2.99
+      const discountPercent = Math.min(
+        100,
+        Math.max(0, Number(item.discount || 0))
+      );
 
-      return total;
+      const discountPerItem = (currentPrice * discountPercent) / 100;
+
+      return total + discountPerItem * quantity;
     }, 0);
   }, [enrichedCartItems]);
 
@@ -324,14 +334,9 @@ function BagPage() {
                               </span>
                             )}
 
-                            {Number(product.oldPrice || 0) >
-                              Number(product.price || 0) && (
+                            {Number(product.discount || 0) > 0 && (
                               <span className="rounded-full bg-[#EAF8EC] px-3 py-1 text-xs font-semibold text-[#2F8F46]">
-                                SAVE ₹
-                                {(
-                                  Number(product.oldPrice) -
-                                  Number(product.price)
-                                ).toLocaleString("en-IN")}
+                                {Number(product.discount)}% OFF
                               </span>
                             )}
                           </div>
@@ -465,7 +470,7 @@ function BagPage() {
                 </p>
 
                 <h3 className="mt-1 font-serif text-5xl font-semibold">
-                  ₹{total.toLocaleString("en-IN")}
+                  ₹{Math.round(total).toLocaleString("en-IN")}
                 </h3>
 
                 {/* BUY NOW */}

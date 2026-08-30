@@ -1,7 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import crypto from "crypto";
 
 const http = httpRouter();
 
@@ -68,13 +67,37 @@ http.route({
       }
 
       // =================================================
-      // CALCULATE SIGNATURE
+      // CALCULATE HMAC SHA256
       // =================================================
 
-      const expectedSignature = crypto
-        .createHmac("sha256", webhookSecret)
-        .update(rawBody)
-        .digest("hex");
+      const encoder = new TextEncoder();
+
+      const keyData = encoder.encode(webhookSecret);
+
+      const cryptoKey = await globalThis.crypto.subtle.importKey(
+        "raw",
+        keyData,
+        {
+          name: "HMAC",
+          hash: "SHA-256",
+        },
+        false,
+        ["sign"]
+      );
+
+      const signatureBuffer = await globalThis.crypto.subtle.sign(
+        "HMAC",
+        cryptoKey,
+        encoder.encode(rawBody)
+      );
+
+      // =================================================
+      // CONVERT SIGNATURE TO HEX
+      // =================================================
+
+      const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
 
       // =================================================
       // SIGNATURE LENGTH
@@ -98,13 +121,16 @@ http.route({
       }
 
       // =================================================
-      // VERIFY SIGNATURE
+      // CONSTANT-TIME SIGNATURE COMPARISON
       // =================================================
 
-      const isValid = crypto.timingSafeEqual(
-        Buffer.from(expectedSignature, "utf8"),
-        Buffer.from(signature, "utf8")
-      );
+      let isValid = true;
+
+      for (let i = 0; i < expectedSignature.length; i++) {
+        if (expectedSignature.charCodeAt(i) !== signature.charCodeAt(i)) {
+          isValid = false;
+        }
+      }
 
       if (!isValid) {
         console.error("ELYVORR: Invalid Razorpay webhook signature.");
@@ -155,9 +181,7 @@ http.route({
       const event = payload?.event;
 
       console.log("=================================================");
-
       console.log("ELYVORR RAZORPAY WEBHOOK RECEIVED");
-
       console.log("Event:", event);
 
       // =================================================
@@ -173,7 +197,9 @@ http.route({
       const amountPaise = Number(payment?.amount || 0);
 
       console.log("Payment ID:", paymentId);
+
       console.log("Razorpay Order ID:", razorpayOrderId);
+
       console.log("Amount Paise:", amountPaise);
 
       // =================================================
@@ -197,10 +223,6 @@ http.route({
             }
           );
         }
-
-        // =================================================
-        // UPDATE CONVEX ORDER
-        // =================================================
 
         const result = await ctx.runMutation(
           internal.paymentMutations.markPaymentSuccessByRazorpayOrderId,

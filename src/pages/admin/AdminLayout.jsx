@@ -25,31 +25,11 @@ import { api } from "../../../convex/_generated/api";
 // =====================================================
 
 const navItems = [
-  {
-    name: "Dashboard",
-    path: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    name: "Orders",
-    path: "/admin/orders",
-    icon: ClipboardList,
-  },
-  {
-    name: "Products",
-    path: "/admin/products",
-    icon: Package,
-  },
-  {
-    name: "Inventory",
-    path: "/admin/inventory",
-    icon: BarChart3,
-  },
-  {
-    name: "Inquiries",
-    path: "/admin/inquiries",
-    icon: ShoppingBag,
-  },
+  { name: "Dashboard", path: "/admin", icon: LayoutDashboard },
+  { name: "Orders", path: "/admin/orders", icon: ClipboardList },
+  { name: "Products", path: "/admin/products", icon: Package },
+  { name: "Inventory", path: "/admin/inventory", icon: BarChart3 },
+  { name: "Inquiries", path: "/admin/inquiries", icon: ShoppingBag },
 ];
 
 // =====================================================
@@ -68,21 +48,13 @@ function AdminLayout() {
   );
 
   // ===================================================
-  // ADMIN SESSION QUERY
+  // VERIFY ADMIN SESSION
   // ===================================================
 
   const admin = useQuery(
     api.admin.verifySession,
-    sessionToken
-      ? {
-          sessionToken,
-        }
-      : "skip"
+    sessionToken ? { sessionToken } : "skip"
   );
-
-  // ===================================================
-  // LOGOUT
-  // ===================================================
 
   const logout = useMutation(api.admin.logout);
 
@@ -91,42 +63,54 @@ function AdminLayout() {
   // ===================================================
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [collapsed, setCollapsed] = useState(false);
 
   // ===================================================
-  // KEEP LOCAL ADMIN DATA UPDATED
+  // AUTH PROTECTION
   // ===================================================
 
   useEffect(() => {
-    if (!admin) {
+    // No login session at all.
+    if (!sessionToken) {
+      localStorage.removeItem("elyvorr_admin_session");
+      localStorage.removeItem("elyvorr_admin_user");
+
+      navigate("/admin/login", { replace: true });
       return;
     }
 
-    const updatedAdmin = {
-      id: admin.id,
-      fullName: admin.fullName,
-      email: admin.email,
-    };
+    // Convex is still checking the session.
+    if (admin === undefined) {
+      return;
+    }
 
-    localStorage.setItem("elyvorr_admin_user", JSON.stringify(updatedAdmin));
-  }, [admin]);
-
-  // ===================================================
-  // SESSION INVALID / EXPIRED
-  // ===================================================
-
-  useEffect(() => {
-    if (sessionToken && admin === null) {
+    // Session is invalid or expired.
+    if (admin === null) {
       localStorage.removeItem("elyvorr_admin_session");
-
       localStorage.removeItem("elyvorr_admin_user");
 
       setSessionToken(null);
 
-      navigate("/admin/login");
+      navigate("/admin/login", { replace: true });
     }
-  }, [admin, sessionToken, navigate]);
+  }, [sessionToken, admin, navigate]);
+
+  // ===================================================
+  // UPDATE LOCAL ADMIN DATA
+  // ===================================================
+
+  useEffect(() => {
+    if (!admin) return;
+
+    localStorage.setItem(
+      "elyvorr_admin_user",
+      JSON.stringify({
+        id: admin.id,
+        fullName: admin.fullName,
+        email: admin.email,
+      })
+    );
+  }, [admin]);
 
   // ===================================================
   // LOGOUT
@@ -145,35 +129,44 @@ function AdminLayout() {
       console.error("Logout error:", error);
     } finally {
       localStorage.removeItem("elyvorr_admin_session");
-
       localStorage.removeItem("elyvorr_admin_user");
 
       setSessionToken(null);
 
-      navigate("/admin/login");
+      navigate("/admin/login", { replace: true });
     }
   };
 
   // ===================================================
-  // ADMIN DISPLAY DATA
+  // IMPORTANT SECURITY UI GUARD
+  // NEVER RENDER ADMIN CONTENT WITHOUT VERIFIED SESSION
   // ===================================================
 
-  const adminName = admin?.fullName || "Administrator";
+  if (!sessionToken) {
+    return null;
+  }
 
-  const adminEmail = admin?.email || "";
+  if (admin === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#E7E1D7] border-t-[#C9A96E]" />
+          <p className="mt-4 text-sm text-[#888]">Checking admin session...</p>
+        </div>
+      </div>
+    );
+  }
 
+  if (admin === null) {
+    return null;
+  }
+
+  const adminName = admin.fullName || "Administrator";
   const adminInitial = adminName.trim().charAt(0).toUpperCase() || "A";
-
-  // ===================================================
-  // RETURN
-  // ===================================================
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-[#181818]">
-      {/* =================================================
-          MOBILE OVERLAY
-      ================================================= */}
-
+      {/* MOBILE OVERLAY */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/30 lg:hidden"
@@ -181,40 +174,23 @@ function AdminLayout() {
         />
       )}
 
-      {/* =================================================
-          SIDEBAR
-      ================================================= */}
-
+      {/* SIDEBAR */}
       <aside
         className={`
-          fixed
-          left-0
-          top-0
-          z-50
-          flex
-          h-screen
-          flex-col
-          border-r
-          border-[#E7E1D7]
-          bg-white
-          transition-all
-          duration-300
-          lg:translate-x-0
+          fixed left-0 top-0 z-50 flex h-screen flex-col
+          border-r border-[#E7E1D7] bg-white
+          transition-all duration-300 lg:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           ${collapsed ? "w-[82px]" : "w-[260px]"}
         `}
       >
-        {/* =================================================
-            LOGO
-        ================================================= */}
-
+        {/* LOGO */}
         <div className="flex h-24 items-center justify-between border-b border-[#ECE7DF] px-5">
           {!collapsed && (
             <div>
               <p className="font-serif text-2xl font-semibold tracking-[4px]">
                 ELYVORR
               </p>
-
               <p className="mt-1 text-[8px] font-semibold uppercase tracking-[3px] text-[#C9A96E]">
                 Admin Panel
               </p>
@@ -229,8 +205,6 @@ function AdminLayout() {
             </div>
           )}
 
-          {/* Mobile close */}
-
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
@@ -240,10 +214,7 @@ function AdminLayout() {
           </button>
         </div>
 
-        {/* =================================================
-            NAVIGATION
-        ================================================= */}
-
+        {/* NAVIGATION */}
         <nav className="flex-1 space-y-1 px-3 py-6">
           {!collapsed && (
             <p className="mb-3 px-3 text-[9px] font-semibold uppercase tracking-[2px] text-[#AAA]">
@@ -262,16 +233,8 @@ function AdminLayout() {
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   `
-                    group
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    px-3
-                    py-3
-                    text-sm
-                    font-medium
-                    transition
+                    group flex items-center gap-3 rounded-xl px-3 py-3
+                    text-sm font-medium transition
                     ${
                       isActive
                         ? "bg-[#F6F0E5] text-[#A6813F]"
@@ -282,7 +245,6 @@ function AdminLayout() {
                 }
               >
                 <Icon size={19} strokeWidth={1.8} />
-
                 {!collapsed && <span>{item.name}</span>}
               </NavLink>
             );
@@ -294,24 +256,13 @@ function AdminLayout() {
             </p>
           )}
 
-          {/* =================================================
-              SETTINGS
-          ================================================= */}
-
           <NavLink
             to="/admin/settings"
             onClick={() => setSidebarOpen(false)}
             className={({ isActive }) =>
               `
-              flex
-              items-center
-              gap-3
-              rounded-xl
-              px-3
-              py-3
-              text-sm
-              font-medium
-              transition
+              flex items-center gap-3 rounded-xl px-3 py-3
+              text-sm font-medium transition
               ${
                 isActive
                   ? "bg-[#F6F0E5] text-[#A6813F]"
@@ -322,15 +273,11 @@ function AdminLayout() {
             }
           >
             <Settings size={19} strokeWidth={1.8} />
-
             {!collapsed && <span>Settings</span>}
           </NavLink>
         </nav>
 
-        {/* =================================================
-            COLLAPSE
-        ================================================= */}
-
+        {/* COLLAPSE */}
         <div className="hidden border-t border-[#ECE7DF] p-3 lg:block">
           <button
             type="button"
@@ -348,58 +295,34 @@ function AdminLayout() {
           </button>
         </div>
 
-        {/* =================================================
-            LOGOUT
-        ================================================= */}
-
+        {/* LOGOUT */}
         <div className="border-t border-[#ECE7DF] p-3">
           <button
             type="button"
             onClick={handleLogout}
             className={`
-              flex
-              w-full
-              items-center
-              gap-3
-              rounded-xl
-              px-3
-              py-3
-              text-sm
-              font-medium
-              text-[#777]
-              transition
-              hover:bg-red-50
-              hover:text-red-600
+              flex w-full items-center gap-3 rounded-xl px-3 py-3
+              text-sm font-medium text-[#777] transition
+              hover:bg-red-50 hover:text-red-600
               ${collapsed ? "justify-center" : ""}
             `}
           >
             <LogOut size={19} strokeWidth={1.8} />
-
             {!collapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>
 
-      {/* =================================================
-          MAIN
-      ================================================= */}
-
+      {/* MAIN */}
       <div
         className={`
-          min-h-screen
-          transition-all
-          duration-300
+          min-h-screen transition-all duration-300
           ${collapsed ? "lg:pl-[82px]" : "lg:pl-[260px]"}
         `}
       >
-        {/* =================================================
-            TOPBAR
-        ================================================= */}
-
+        {/* TOPBAR */}
         <header className="sticky top-0 z-30 border-b border-[#E7E1D7] bg-white/95 backdrop-blur-xl">
           <div className="flex h-20 items-center justify-between px-5 sm:px-8">
-            {/* Mobile menu */}
-
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -408,26 +331,18 @@ function AdminLayout() {
               <Menu size={23} />
             </button>
 
-            {/* Page title */}
-
             <div className="hidden sm:block">
               <p className="text-[9px] font-semibold uppercase tracking-[2px] text-[#C9A96E]">
                 ELYVORR
               </p>
-
               <p className="mt-1 font-serif text-xl font-semibold">
                 Admin Panel
               </p>
             </div>
 
-            {/* =================================================
-                RIGHT ADMIN PROFILE
-            ================================================= */}
-
             <div className="ml-auto flex items-center gap-3">
               <div className="hidden text-right sm:block">
                 <p className="text-xs font-semibold">{adminName}</p>
-
                 <p className="mt-0.5 text-[10px] text-[#999]">Administrator</p>
               </div>
 
@@ -438,10 +353,7 @@ function AdminLayout() {
           </div>
         </header>
 
-        {/* =================================================
-            PAGE CONTENT
-        ================================================= */}
-
+        {/* PAGE CONTENT */}
         <main className="px-5 py-7 sm:px-8 lg:px-10 lg:py-10">
           <Outlet />
         </main>
