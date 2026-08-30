@@ -49,7 +49,9 @@ function Footer() {
 
               {/* INSTAGRAM */}
               <a
-                href="#"
+                href="https://www.instagram.com/YOUR_USERNAME/"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[#444] transition hover:border-[#C9A96E] hover:text-[#C9A96E] sm:h-11 sm:w-11"
               >

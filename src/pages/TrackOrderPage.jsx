@@ -10,8 +10,19 @@ import {
   CreditCard,
   Clock,
   XCircle,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+// =====================================================
+// CUSTOMER SUPPORT NUMBER
+// =====================================================
+// Example: 919876543210
+// 91 + 10 digit mobile number
+// =====================================================
+
+const SUPPORT_NUMBER = "919XXXXXXXXX";
 
 function OrderTrackingPage() {
   const navigate = useNavigate();
@@ -19,11 +30,19 @@ function OrderTrackingPage() {
   const [inputOrderNumber, setInputOrderNumber] = useState("");
   const [searchOrderNumber, setSearchOrderNumber] = useState("");
 
+  // =====================================================
+  // GET ORDER
+  // =====================================================
+
   const order = useQuery(api.orders.getOrderTrackingByNumber, {
     orderNumber: searchOrderNumber,
   });
 
   const isSearching = searchOrderNumber !== "";
+
+  // =====================================================
+  // SEARCH ORDER
+  // =====================================================
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -37,14 +56,26 @@ function OrderTrackingPage() {
     setSearchOrderNumber(orderNumber);
   };
 
+  // =====================================================
+  // RESET
+  // =====================================================
+
   const handleReset = () => {
     setInputOrderNumber("");
     setSearchOrderNumber("");
   };
 
+  // =====================================================
+  // FORMAT PRICE
+  // =====================================================
+
   const formatPrice = (value) => {
     return Number(value || 0).toLocaleString("en-IN");
   };
+
+  // =====================================================
+  // FORMAT DATE
+  // =====================================================
 
   const formatDate = (timestamp) => {
     if (!timestamp) return "";
@@ -58,10 +89,27 @@ function OrderTrackingPage() {
     });
   };
 
+  // =====================================================
+  // PAYMENT STATUS
+  // =====================================================
+
+  const paymentStatus = String(order?.paymentStatus || "").toLowerCase();
+
   const paymentPaid =
-    String(order?.paymentStatus || "").toLowerCase() === "paid";
+    paymentStatus === "paid" ||
+    paymentStatus === "success" ||
+    paymentStatus === "successful" ||
+    paymentStatus === "captured";
+
+  // =====================================================
+  // CURRENT ORDER STATUS
+  // =====================================================
 
   const currentStatus = String(order?.orderStatus || "pending").toLowerCase();
+
+  // =====================================================
+  // STATUS STEPS
+  // =====================================================
 
   const statusSteps = [
     {
@@ -107,6 +155,20 @@ function OrderTrackingPage() {
 
     return currentIndex >= 0 && stepIndex >= 0 && currentIndex >= stepIndex;
   };
+
+  // =====================================================
+  // CUSTOMER SUPPORT
+  // =====================================================
+
+  const phoneLink = `tel:+${SUPPORT_NUMBER}`;
+
+  const whatsappMessage = encodeURIComponent(
+    order
+      ? `Hello ELYVORR Support, I need help regarding my order ${order.orderNumber}.`
+      : "Hello ELYVORR Support, I need help with my order."
+  );
+
+  const whatsappLink = `https://wa.me/${SUPPORT_NUMBER}?text=${whatsappMessage}`;
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-[#181818]">
@@ -187,7 +249,9 @@ function OrderTrackingPage() {
 
       <section className="px-5 pb-20 sm:px-8">
         <div className="mx-auto max-w-5xl">
-          {/* LOADING */}
+          {/* =================================================
+              LOADING
+          ================================================= */}
 
           {isSearching && order === undefined && (
             <div className="rounded-[24px] border border-[#E7E1D7] bg-white p-10 text-center">
@@ -197,7 +261,9 @@ function OrderTrackingPage() {
             </div>
           )}
 
-          {/* NOT FOUND */}
+          {/* =================================================
+              NOT FOUND
+          ================================================= */}
 
           {isSearching && order === null && (
             <div className="rounded-[24px] border border-[#E7E1D7] bg-white p-10 text-center">
@@ -224,7 +290,9 @@ function OrderTrackingPage() {
             </div>
           )}
 
-          {/* ORDER FOUND */}
+          {/* =================================================
+              ORDER FOUND
+          ================================================= */}
 
           {order && (
             <div className="space-y-6">
@@ -349,10 +417,14 @@ function OrderTrackingPage() {
               </div>
 
               {/* =================================================
-                  PAYMENT SUMMARY
+                  PAYMENT SUMMARY + ITEMS
               ================================================= */}
 
               <div className="grid gap-6 lg:grid-cols-2">
+                {/* =================================================
+                    PAYMENT SUMMARY
+                ================================================= */}
+
                 <div className="rounded-[24px] border border-[#E7E1D7] bg-white p-6 sm:p-8">
                   <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#C9A96E]">
                     Payment Summary
@@ -365,11 +437,13 @@ function OrderTrackingPage() {
                   <div className="mt-7 space-y-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-[#777]">Subtotal</span>
+
                       <span>₹{formatPrice(order.subtotal)}</span>
                     </div>
 
                     <div className="flex justify-between">
                       <span className="text-[#777]">Discount</span>
+
                       <span className="text-[#2F8F46]">
                         -₹{formatPrice(order.discount)}
                       </span>
@@ -377,12 +451,8 @@ function OrderTrackingPage() {
 
                     <div className="flex justify-between">
                       <span className="text-[#777]">Shipping</span>
-                      <span>₹{formatPrice(order.shipping)}</span>
-                    </div>
 
-                    <div className="flex justify-between">
-                      <span className="text-[#777]">GST</span>
-                      <span>₹{formatPrice(order.gst)}</span>
+                      <span>₹{formatPrice(order.shipping)}</span>
                     </div>
 
                     <div className="border-t border-[#E7E1D7] pt-5">
@@ -472,11 +542,74 @@ function OrderTrackingPage() {
               </div>
 
               {/* =================================================
+                  CUSTOMER SUPPORT
+              ================================================= */}
+
+              <div className="rounded-[24px] border border-[#E7E1D7] bg-[#181818] p-6 text-white sm:p-8">
+                <div className="text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#C9A96E]">
+                    Need Help?
+                  </p>
+
+                  <h2 className="mt-2 font-serif text-2xl font-semibold">
+                    Customer Support
+                  </h2>
+
+                  <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-white/60">
+                    Need help with your payment, order or delivery? Contact our
+                    support team.
+                  </p>
+                </div>
+
+                <div className="mx-auto mt-6 grid max-w-xl gap-3 sm:grid-cols-2">
+                  {/* CALL SUPPORT */}
+
+                  <a
+                    href={phoneLink}
+                    className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-xs font-semibold uppercase tracking-[1.5px] text-[#181818] transition hover:bg-[#C9A96E] hover:text-white"
+                  >
+                    <Phone size={17} />
+                    Call Support
+                  </a>
+
+                  {/* WHATSAPP */}
+
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-12 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 text-xs font-semibold uppercase tracking-[1.5px] text-white transition hover:border-[#C9A96E] hover:bg-[#C9A96E]"
+                  >
+                    <MessageCircle size={17} />
+                    WhatsApp
+                  </a>
+                </div>
+
+                <p className="mt-4 text-center text-[10px] text-white/40">
+                  Customer Support: +{SUPPORT_NUMBER}
+                </p>
+              </div>
+
+              {/* =================================================
                   LAST UPDATED
               ================================================= */}
 
               <div className="text-center text-[10px] text-[#999]">
                 Last updated: {formatDate(order.updatedAt)}
+              </div>
+
+              {/* =================================================
+                  TRACK ANOTHER ORDER
+              ================================================= */}
+
+              <div className="pb-5 text-center">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-xs font-semibold uppercase tracking-[1.5px] text-[#999] transition hover:text-[#C9A96E]"
+                >
+                  Track Another Order
+                </button>
               </div>
             </div>
           )}

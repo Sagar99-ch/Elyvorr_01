@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Menu, ShoppingBag, X, Search } from "lucide-react";
+import { Menu, ShoppingBag, X, Search, PackageSearch } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -49,6 +49,15 @@ function Navbar({ bagCount = 0 }) {
     navigate("/collection");
   };
 
+  // =====================================================
+  // TRACK ORDER
+  // =====================================================
+
+  const handleTrackOrder = () => {
+    setOpenMenu(false);
+    navigate("/track-order");
+  };
+
   return (
     <>
       {/* =====================================================
@@ -60,7 +69,7 @@ function Navbar({ bagCount = 0 }) {
             DESKTOP
         ================================================= */}
 
-        <div className="mx-auto hidden h-24 max-w-7xl items-center justify-between px-6 lg:flex">
+        <div className="mx-auto hidden min-h-[128px] max-w-7xl items-center justify-between px-6 lg:flex">
           {/* LOGO */}
 
           <button
@@ -72,27 +81,53 @@ function Navbar({ bagCount = 0 }) {
             ELYVORR
           </button>
 
-          {/* DESKTOP NAV */}
+          {/* =================================================
+              DESKTOP NAV + TRACK ORDER
+          ================================================= */}
 
-          <nav className="flex items-center gap-10">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                className={({ isActive }) =>
-                  `text-[13px] font-medium tracking-[2px] transition duration-300 ${
-                    isActive
-                      ? "text-[#C9A96E]"
-                      : "text-[#181818] hover:text-[#C9A96E]"
-                  }`
-                }
-              >
-                {item.name}
-              </NavLink>
-            ))}
-          </nav>
+          <div className="flex flex-col items-center">
+            {/* MAIN NAV */}
 
-          {/* DESKTOP BAG */}
+            <nav className="flex items-center gap-10">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `text-[13px] font-medium tracking-[2px] transition duration-300 ${
+                      isActive
+                        ? "text-[#C9A96E]"
+                        : "text-[#181818] hover:text-[#C9A96E]"
+                    }`
+                  }
+                >
+                  {item.name}
+                </NavLink>
+              ))}
+            </nav>
+
+            {/* =================================================
+                TRACK ORDER
+            ================================================= */}
+
+            <NavLink
+              to="/track-order"
+              className={({ isActive }) =>
+                `mt-3 flex items-center gap-2 rounded-full border px-5 py-2 text-[10px] font-semibold tracking-[1.8px] transition duration-300 ${
+                  isActive
+                    ? "border-[#C9A96E] bg-[#C9A96E] text-white"
+                    : "border-[#E5D4B5] bg-[#FBF8F1] text-[#B28A4A] hover:border-[#C9A96E] hover:bg-[#C9A96E] hover:text-white"
+                }`
+              }
+            >
+              <PackageSearch size={15} strokeWidth={1.8} />
+              TRACK ORDER
+            </NavLink>
+          </div>
+
+          {/* =================================================
+              DESKTOP BAG
+          ================================================= */}
 
           <div className="flex items-center gap-2">
             <button
@@ -305,6 +340,33 @@ function Navbar({ bagCount = 0 }) {
                 {item.name}
               </NavLink>
             ))}
+
+            {/* =================================================
+                MOBILE TRACK ORDER
+            ================================================= */}
+
+            <button
+              type="button"
+              onClick={handleTrackOrder}
+              className="
+                flex
+                items-center
+                gap-3
+                border-b
+                border-[#F0ECE5]
+                py-5
+                text-left
+                text-sm
+                font-medium
+                tracking-[2px]
+                transition
+                hover:text-[#C9A96E]
+              "
+            >
+              <PackageSearch size={18} strokeWidth={1.8} />
+
+              <span>TRACK ORDER</span>
+            </button>
 
             {/* =================================================
                 MOBILE BAG
