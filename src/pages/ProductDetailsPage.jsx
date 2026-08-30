@@ -564,7 +564,7 @@ function ProductDetailsPage() {
                   onClick={handleBuyNow}
                   className={`flex h-[58px] items-center justify-center gap-3 rounded-xl text-sm font-semibold uppercase tracking-[1.5px] text-white transition ${
                     product.stock > 0
-                      ? "bg-[#C9A96E] hover:bg-[#B99155]"
+                      ? "bg-[#181818] hover:bg-[#C9A96E]"
                       : "cursor-not-allowed bg-[#BDB9B2]"
                   }`}
                 >
