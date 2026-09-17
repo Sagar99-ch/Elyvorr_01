@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 
-import { useCart } from "../context/CartContext";
+import { useCart } from "../../context/CartContext";
 
 function BagPage() {
   const navigate = useNavigate();

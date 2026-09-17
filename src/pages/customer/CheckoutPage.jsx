@@ -9,8 +9,8 @@ import {
   Truck,
 } from "lucide-react";
 
-import Layout from "../components/layout/Layout";
-import { useCart } from "../context/CartContext";
+import Layout from "../../components/layout/Layout";
+import { useCart } from "../../context/CartContext";
 
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();

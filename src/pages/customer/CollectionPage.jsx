@@ -2,10 +2,10 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 
-import ProductCard from "../components/product/ProductCard";
-import { useCart } from "../context/CartContext";
+import ProductCard from "../../components/product/ProductCard";
+import { useCart } from "../../context/CartContext";
 
 function CollectionPage() {
   const { addToBag } = useCart();

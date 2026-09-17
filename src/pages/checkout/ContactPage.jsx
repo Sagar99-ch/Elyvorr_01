@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CheckCircle2, Mail, MapPin, Phone, Send } from "lucide-react";
 
 import { useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 
 function ContactPage() {
   // =====================================================

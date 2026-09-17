@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 
-import Layout from "../components/layout/Layout";
-import Hero from "../components/home/Hero/Hero";
-import FeaturedProducts from "../components/home/FeaturedProducts";
+import Layout from "../../components/layout/Layout";
+import Hero from "../../components/home/Hero/Hero";
+import FeaturedProducts from "../../components/home/FeaturedProducts";
 
 function HomePage() {
   useEffect(() => {

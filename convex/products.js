@@ -89,7 +89,6 @@ export const add = mutation({
       price: args.price,
       oldPrice: args.oldPrice,
 
-      // IMPORTANT
       discount: args.discount,
 
       reviews: args.reviews,
@@ -184,7 +183,7 @@ export const update = mutation({
  * ==================================================
  * DELETE / REMOVE PRODUCT
  *
- * Soft delete
+ * PERMANENT DELETE
  * ==================================================
  */
 export const remove = mutation({
@@ -193,19 +192,44 @@ export const remove = mutation({
   },
 
   handler: async (ctx, args) => {
+    // =================================================
+    // CHECK PRODUCT
+    // =================================================
+
     const product = await ctx.db.get(args.id);
 
     if (!product) {
       throw new Error("Product not found");
     }
 
-    await ctx.db.patch(args.id, {
-      isActive: false,
-    });
+    // =================================================
+    // REMOVE PRODUCT FROM ALL CARTS
+    //
+    // We use the "by_session" index because the
+    // "by_session_product" index requires sessionId
+    // before productId.
+    // =================================================
+
+    const cartItems = await ctx.db
+      .query("cart")
+      .withIndex("by_session")
+      .collect();
+
+    for (const cartItem of cartItems) {
+      if (cartItem.productId === args.id) {
+        await ctx.db.delete(cartItem._id);
+      }
+    }
+
+    // =================================================
+    // PERMANENTLY DELETE PRODUCT
+    // =================================================
+
+    await ctx.db.delete(args.id);
 
     return {
       success: true,
-      message: "Product removed successfully",
+      message: "Product deleted permanently.",
     };
   },
 });

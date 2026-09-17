@@ -21,9 +21,9 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { api } from "../../convex/_generated/api";
-import Layout from "../components/layout/Layout";
-import { useCart } from "../context/CartContext";
+import { api } from "../../../convex/_generated/api";
+import Layout from "../../components/layout/Layout";
+import { useCart } from "../../context/CartContext";
 
 // =====================================================
 // GET / CREATE SESSION ID
