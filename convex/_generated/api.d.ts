@@ -13,6 +13,8 @@ import type * as admin from "../admin.js";
 import type * as adminDashboard from "../adminDashboard.js";
 import type * as cart from "../cart.js";
 import type * as contacts from "../contacts.js";
+import type * as delhivery from "../delhivery.js";
+import type * as delhiveryActions from "../delhiveryActions.js";
 import type * as http from "../http.js";
 import type * as orderTracking from "../orderTracking.js";
 import type * as orders from "../orders.js";
@@ -33,6 +35,8 @@ declare const fullApi: ApiFromModules<{
   adminDashboard: typeof adminDashboard;
   cart: typeof cart;
   contacts: typeof contacts;
+  delhivery: typeof delhivery;
+  delhiveryActions: typeof delhiveryActions;
   http: typeof http;
   orderTracking: typeof orderTracking;
   orders: typeof orders;

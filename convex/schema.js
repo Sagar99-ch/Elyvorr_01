@@ -12,9 +12,8 @@ export default defineSchema({
     price: v.number(),
     oldPrice: v.optional(v.number()),
 
-    // NEW
-    // Order Summary discount percentage
-    // Example: 10 = 10% discount
+    // Product discount percentage
+    // Example: 10 = 10% OFF
     discount: v.optional(v.number()),
 
     reviews: v.number(),
@@ -24,6 +23,24 @@ export default defineSchema({
     stock: v.number(),
     isActive: v.boolean(),
     createdAt: v.number(),
+
+    // ===================================================
+    // SHIPPING PRODUCT DETAILS
+    // ===================================================
+    // These details are used by Delhivery.
+    // Existing product data remains compatible.
+
+    // Example: ELY-DARK-50
+    sku: v.optional(v.string()),
+
+    // Packed product weight in KG
+    // Example: 0.250
+    weight: v.optional(v.number()),
+
+    // Packed dimensions in CM
+    length: v.optional(v.number()),
+    breadth: v.optional(v.number()),
+    height: v.optional(v.number()),
   }).index("by_name", ["name"]),
 
   // =====================================================
@@ -63,6 +80,11 @@ export default defineSchema({
   orders: defineTable({
     sessionId: v.string(),
     orderNumber: v.string(),
+
+    // ===================================================
+    // CUSTOMER
+    // ===================================================
+
     customerName: v.string(),
     mobile: v.string(),
     address: v.string(),
@@ -70,9 +92,9 @@ export default defineSchema({
     state: v.string(),
     pincode: v.string(),
 
-    // -----------------------------------------------------
+    // ===================================================
     // ORDER ITEMS
-    // -----------------------------------------------------
+    // ===================================================
 
     items: v.array(
       v.object({
@@ -82,12 +104,20 @@ export default defineSchema({
         price: v.number(),
         quantity: v.number(),
         image: v.string(),
+
+        // Product shipping snapshot
+        // Used by Delhivery
+        sku: v.optional(v.string()),
+        weight: v.optional(v.number()),
+        length: v.optional(v.number()),
+        breadth: v.optional(v.number()),
+        height: v.optional(v.number()),
       })
     ),
 
-    // -----------------------------------------------------
+    // ===================================================
     // ORDER TOTALS
-    // -----------------------------------------------------
+    // ===================================================
 
     subtotal: v.number(),
     discount: v.number(),
@@ -95,9 +125,9 @@ export default defineSchema({
     gst: v.number(),
     total: v.number(),
 
-    // -----------------------------------------------------
+    // ===================================================
     // PAYMENT
-    // -----------------------------------------------------
+    // ===================================================
 
     paymentStatus: v.string(),
     paymentId: v.optional(v.string()),
@@ -105,15 +135,63 @@ export default defineSchema({
     // Razorpay Order ID
     razorpayOrderId: v.optional(v.string()),
 
-    // -----------------------------------------------------
+    // ===================================================
     // ORDER STATUS
-    // -----------------------------------------------------
+    // ===================================================
 
     orderStatus: v.string(),
 
-    // -----------------------------------------------------
+    // ===================================================
+    // OLD SHIPROCKET FIELDS
+    // ===================================================
+    // Kept temporarily so existing orders/data do not
+    // break during migration to Delhivery.
+
+    shiprocketOrderId: v.optional(v.string()),
+    shiprocketShipmentId: v.optional(v.string()),
+
+    // ===================================================
+    // COMMON SHIPPING FIELDS
+    // ===================================================
+
+    // AWB / Waybill
+    awbCode: v.optional(v.string()),
+
+    // Courier name
+    courierName: v.optional(v.string()),
+
+    // Current shipping status
+    shippingStatus: v.optional(v.string()),
+
+    // Tracking URL
+    trackingUrl: v.optional(v.string()),
+
+    // Shipping timestamps
+    shippedAt: v.optional(v.number()),
+    deliveredAt: v.optional(v.number()),
+
+    // ===================================================
+    // DELHIVERY
+    // ===================================================
+
+    // Delhivery Waybill / AWB
+    delhiveryWaybill: v.optional(v.string()),
+
+    // Delhivery pickup request ID
+    delhiveryPickupId: v.optional(v.string()),
+
+    // Current Delhivery status
+    delhiveryStatus: v.optional(v.string()),
+
+    // Delhivery status code
+    delhiveryStatusCode: v.optional(v.string()),
+
+    // Time when shipment was manifested/created
+    delhiveryManifestedAt: v.optional(v.number()),
+
+    // ===================================================
     // TIMESTAMPS
-    // -----------------------------------------------------
+    // ===================================================
 
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -122,7 +200,12 @@ export default defineSchema({
     .index("by_order_number", ["orderNumber"])
     .index("by_payment_status", ["paymentStatus"])
     .index("by_order_status", ["orderStatus"])
-    .index("by_razorpayOrderId", ["razorpayOrderId"]),
+    .index("by_razorpayOrderId", ["razorpayOrderId"])
+    .index("by_awbCode", ["awbCode"])
+
+    // Delhivery indexes
+    .index("by_delhivery_waybill", ["delhiveryWaybill"])
+    .index("by_delhivery_pickup_id", ["delhiveryPickupId"]),
 
   // =====================================================
   // CONTACT ENQUIRIES

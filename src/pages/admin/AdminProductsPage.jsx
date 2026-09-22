@@ -57,6 +57,13 @@ function AdminProductsPage() {
     price: "",
     oldPrice: "",
 
+    // Delhivery shipping/package details
+    sku: "",
+    weight: "",
+    length: "",
+    breadth: "",
+    height: "",
+
     // Order Summary discount percentage
     discount: "",
 
@@ -141,6 +148,13 @@ function AdminProductsPage() {
       price: String(product.price ?? ""),
       oldPrice: product.oldPrice !== undefined ? String(product.oldPrice) : "",
 
+      // Delhivery shipping/package details
+      sku: product.sku ?? "",
+      weight: product.weight !== undefined ? String(product.weight) : "",
+      length: product.length !== undefined ? String(product.length) : "",
+      breadth: product.breadth !== undefined ? String(product.breadth) : "",
+      height: product.height !== undefined ? String(product.height) : "",
+
       // Order Summary discount percentage
       discount: product.discount !== undefined ? String(product.discount) : "",
 
@@ -175,12 +189,12 @@ function AdminProductsPage() {
     // BASIC VALIDATION
     // -----------------------------------------------------
 
-    if (!form.name.trim()) {
+    if (!String(form.name ?? "").trim()) {
       setError("Product name is required.");
       return;
     }
 
-    if (!form.volume.trim()) {
+    if (!String(form.volume ?? "").trim()) {
       setError("Volume is required.");
       return;
     }
@@ -190,7 +204,7 @@ function AdminProductsPage() {
       return;
     }
 
-    if (!form.image.trim()) {
+    if (!String(form.image ?? "").trim()) {
       setError("Main product image URL is required.");
       return;
     }
@@ -208,12 +222,38 @@ function AdminProductsPage() {
       return;
     }
 
+    // Delhivery package details
+    if (!String(form.sku ?? "").trim()) {
+      setError("SKU is required for Delhivery shipping.");
+      return;
+    }
+
+    if (form.weight === "" || Number(form.weight) <= 0) {
+      setError("Enter a valid packaged weight in kg.");
+      return;
+    }
+
+    if (form.length === "" || Number(form.length) <= 0) {
+      setError("Enter a valid package length in cm.");
+      return;
+    }
+
+    if (form.breadth === "" || Number(form.breadth) <= 0) {
+      setError("Enter a valid package breadth in cm.");
+      return;
+    }
+
+    if (form.height === "" || Number(form.height) <= 0) {
+      setError("Enter a valid package height in cm.");
+      return;
+    }
+
     // -----------------------------------------------------
     // BUILD IMAGE ARRAY
     // -----------------------------------------------------
 
     const additionalImages = [form.image2, form.image3]
-      .map((image) => image.trim())
+      .map((image) => String(image ?? "").trim())
       .filter(Boolean);
 
     setSaving(true);
@@ -227,15 +267,22 @@ function AdminProductsPage() {
 
         oldPrice: form.oldPrice !== "" ? Number(form.oldPrice) : undefined,
 
+        // Delhivery shipping/package details
+        sku: String(form.sku ?? "").trim(),
+        weight: Number(form.weight),
+        length: Number(form.length),
+        breadth: Number(form.breadth),
+        height: Number(form.height),
+
         // Order Summary discount percentage
         discount: form.discount !== "" ? Number(form.discount) : 0,
 
         reviews: form.reviews !== "" ? Number(form.reviews) : 0,
 
-        badge: form.badge.trim() || undefined,
+        badge: String(form.badge ?? "").trim() || undefined,
 
         // Main image
-        image: form.image.trim(),
+        image: String(form.image ?? "").trim(),
 
         // Additional images
         images: additionalImages.length > 0 ? additionalImages : undefined,
@@ -744,6 +791,105 @@ function AdminProductsPage() {
                 </div>
               </div>
 
+              {/* DELHIVERY SHIPPING DETAILS */}
+
+              <div className="rounded-2xl border border-[#E7E1D7] bg-[#FCFBF8] p-5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#C9A96E]">
+                    Delhivery Shipping Details
+                  </p>
+                  <p className="mt-1 text-[10px] leading-5 text-[#999]">
+                    Enter the packed product dimensions and weight used for
+                    courier shipping.
+                  </p>
+                </div>
+
+                <div className="mt-4">
+                  <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                    SKU *
+                  </label>
+                  <input
+                    name="sku"
+                    value={form.sku}
+                    onChange={handleChange}
+                    placeholder="e.g. ELY-NOIR-50"
+                    className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-white px-4 text-sm outline-none focus:border-[#C9A96E]"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                      Packed Weight (kg) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      name="weight"
+                      value={form.weight}
+                      onChange={handleChange}
+                      placeholder="e.g. 0.240"
+                      className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-white px-4 text-sm outline-none focus:border-[#C9A96E]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                      Length (cm) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      name="length"
+                      value={form.length}
+                      onChange={handleChange}
+                      placeholder="e.g. 12"
+                      className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-white px-4 text-sm outline-none focus:border-[#C9A96E]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                      Breadth (cm) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      name="breadth"
+                      value={form.breadth}
+                      onChange={handleChange}
+                      placeholder="e.g. 8"
+                      className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-white px-4 text-sm outline-none focus:border-[#C9A96E]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#555]">
+                      Height (cm) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      name="height"
+                      value={form.height}
+                      onChange={handleChange}
+                      placeholder="e.g. 5"
+                      className="mt-2 h-12 w-full rounded-xl border border-[#E5DED3] bg-white px-4 text-sm outline-none focus:border-[#C9A96E]"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-[#E8E2D8] bg-white px-4 py-3 text-[10px] leading-5 text-[#777]">
+                  Example for a 50ml perfume: use the{" "}
+                  <b>complete packed parcel</b> weight and box dimensions, not
+                  only the perfume bottle weight.
+                </div>
+              </div>
+
               {/* PRICE */}
 
               <div className="grid gap-5 sm:grid-cols-2">
@@ -1090,6 +1236,67 @@ function AdminProductsPage() {
                     <ImageIcon size={40} className="text-[#AAA]" />
                   </div>
                 )}
+
+              <div className="mt-5 rounded-2xl border border-[#E7E1D7] bg-[#FCFBF8] p-4">
+                <p className="text-[9px] font-semibold uppercase tracking-[1px] text-[#C9A96E]">
+                  Delhivery Package
+                </p>
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[9px] uppercase tracking-[1px] text-[#999]">
+                      SKU
+                    </p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {viewingProduct.sku || "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] uppercase tracking-[1px] text-[#999]">
+                      Weight
+                    </p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {viewingProduct.weight
+                        ? `${viewingProduct.weight} kg`
+                        : "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] uppercase tracking-[1px] text-[#999]">
+                      Length
+                    </p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {viewingProduct.length
+                        ? `${viewingProduct.length} cm`
+                        : "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] uppercase tracking-[1px] text-[#999]">
+                      Breadth
+                    </p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {viewingProduct.breadth
+                        ? `${viewingProduct.breadth} cm`
+                        : "—"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] uppercase tracking-[1px] text-[#999]">
+                      Height
+                    </p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {viewingProduct.height
+                        ? `${viewingProduct.height} cm`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-[#FCFBF8] p-4">

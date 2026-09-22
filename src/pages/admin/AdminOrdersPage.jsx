@@ -10,11 +10,13 @@ import {
   Package,
   Search,
   Trash2,
+  Truck,
+  ExternalLink,
   User,
   X,
 } from "lucide-react";
 
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 function AdminOrdersPage() {
@@ -27,6 +29,16 @@ function AdminOrdersPage() {
   const updateOrderStatus = useMutation(api.orders.updateOrderStatus);
 
   const deleteOrder = useMutation(api.orders.deleteOrder);
+
+  const createShipment = useAction(api.delhiveryActions.createShipment);
+
+  const trackShipment = useAction(api.delhiveryActions.trackShipment);
+
+  const generateLabel = useAction(api.delhiveryActions.generateLabel);
+
+  const createPickupRequest = useAction(
+    api.delhiveryActions.createPickupRequest
+  );
 
   // =====================================================
   // FILTER STATE
@@ -49,6 +61,8 @@ function AdminOrdersPage() {
   const [updatingOrder, setUpdatingOrder] = useState(null);
 
   const [deletingOrder, setDeletingOrder] = useState(null);
+
+  const [shippingAction, setShippingAction] = useState(null);
 
   const [error, setError] = useState("");
 
@@ -366,6 +380,161 @@ function AdminOrdersPage() {
   };
 
   // =====================================================
+  // CREATE DELHIVERY SHIPMENT
+  // =====================================================
+
+  const handleCreateShipment = async (order) => {
+    if (!order?._id) return;
+
+    if (order.paymentStatus?.toLowerCase() !== "paid") {
+      setError("Only paid orders can be sent to Delhivery.");
+      return;
+    }
+
+    setShippingAction({
+      orderId: order._id,
+      type: "create",
+    });
+    setError("");
+
+    try {
+      await createShipment({
+        orderId: order._id,
+      });
+    } catch (err) {
+      console.error("ELYVORR: Failed to create Delhivery shipment:", err);
+
+      setError(err?.message || "Unable to create Delhivery shipment.");
+    } finally {
+      setShippingAction(null);
+    }
+  };
+
+  // =====================================================
+  // TRACK DELHIVERY SHIPMENT
+  // =====================================================
+
+  const handleTrackShipment = async (order) => {
+    if (!order?._id) return;
+
+    if (!order.delhiveryWaybill) {
+      setError("Create the Delhivery shipment before tracking it.");
+      return;
+    }
+
+    setShippingAction({
+      orderId: order._id,
+      type: "track",
+    });
+    setError("");
+
+    try {
+      await trackShipment({
+        orderId: order._id,
+      });
+    } catch (err) {
+      console.error("ELYVORR: Failed to track Delhivery shipment:", err);
+
+      setError(err?.message || "Unable to track Delhivery shipment.");
+    } finally {
+      setShippingAction(null);
+    }
+  };
+
+  // =====================================================
+  // GENERATE DELHIVERY LABEL
+  // =====================================================
+
+  const handleGenerateLabel = async (order) => {
+    if (!order?._id) return;
+
+    if (!order.delhiveryWaybill) {
+      setError("Create the Delhivery shipment before generating the label.");
+      return;
+    }
+
+    setShippingAction({
+      orderId: order._id,
+      type: "label",
+    });
+    setError("");
+
+    try {
+      const result = await generateLabel({
+        orderId: order._id,
+      });
+
+      if (result?.pdfUrl) {
+        window.open(result.pdfUrl, "_blank", "noopener,noreferrer");
+      } else {
+        setError(
+          "Delhivery created the label response, but no PDF URL was returned."
+        );
+      }
+    } catch (err) {
+      console.error("ELYVORR: Failed to generate Delhivery label:", err);
+
+      setError(err?.message || "Unable to generate Delhivery label.");
+    } finally {
+      setShippingAction(null);
+    }
+  };
+
+  // =====================================================
+  // SCHEDULE DELHIVERY PICKUP
+  // =====================================================
+
+  const handleCreatePickup = async (order) => {
+    if (!order?._id) return;
+
+    if (!order.delhiveryWaybill) {
+      setError("Create the Delhivery shipment before scheduling pickup.");
+      return;
+    }
+
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 1);
+
+    const defaultDateString = [
+      defaultDate.getFullYear(),
+      String(defaultDate.getMonth() + 1).padStart(2, "0"),
+      String(defaultDate.getDate()).padStart(2, "0"),
+    ].join("-");
+
+    const pickupDate = window.prompt(
+      "Enter pickup date (YYYY-MM-DD):",
+      defaultDateString
+    );
+
+    if (!pickupDate) return;
+
+    const pickupTime = window.prompt("Enter pickup time (HH:MM):", "22:00");
+
+    if (!pickupTime) return;
+
+    setShippingAction({
+      orderId: order._id,
+      type: "pickup",
+    });
+    setError("");
+
+    try {
+      await createPickupRequest({
+        orderId: order._id,
+        pickupDate,
+        pickupTime,
+        expectedPackageCount: 1,
+      });
+    } catch (err) {
+      console.error("ELYVORR: Failed to schedule Delhivery pickup:", err);
+
+      setError(err?.message || "Unable to schedule Delhivery pickup.");
+    } finally {
+      setShippingAction(null);
+    }
+  };
+
+  // =====================================================
   // CLEAR FILTERS
   // =====================================================
 
@@ -631,6 +800,11 @@ function AdminOrdersPage() {
               getOrderStatusStyle={getOrderStatusStyle}
               formatDate={formatDate}
               formatTime={formatTime}
+              onCreateShipment={handleCreateShipment}
+              onTrackShipment={handleTrackShipment}
+              onGenerateLabel={handleGenerateLabel}
+              onCreatePickup={handleCreatePickup}
+              shippingAction={shippingAction}
             />
           ))
         )}
@@ -702,6 +876,11 @@ function DateOrderGroup({
   getOrderStatusStyle,
   formatDate,
   formatTime,
+  onCreateShipment,
+  onTrackShipment,
+  onGenerateLabel,
+  onCreatePickup,
+  shippingAction,
 }) {
   return (
     <div className="overflow-hidden rounded-[24px] border border-[#E7E1D7] bg-white">
@@ -760,6 +939,10 @@ function DateOrderGroup({
 
               <th className="px-5 py-4 text-left text-[9px] font-bold uppercase tracking-[1.5px] text-[#999]">
                 Order Status
+              </th>
+
+              <th className="px-5 py-4 text-left text-[9px] font-bold uppercase tracking-[1.5px] text-[#999]">
+                Shipping
               </th>
 
               <th className="px-5 py-4 text-left text-[9px] font-bold uppercase tracking-[1.5px] text-[#999]">
@@ -844,6 +1027,118 @@ function DateOrderGroup({
                       size={12}
                       className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
                     />
+                  </div>
+                </td>
+
+                {/* SHIPPING */}
+
+                <td className="px-5 py-4">
+                  <div className="min-w-[230px] space-y-2">
+                    <div>
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1.5 text-[9px] font-bold uppercase tracking-[1px] ${
+                          order.delhiveryWaybill
+                            ? "bg-[#EAF7ED] text-[#2F8F46]"
+                            : order.delhiveryStatus
+                              ? "bg-[#EEF7F7] text-[#347C7C]"
+                              : "bg-[#F1EFEC] text-[#777]"
+                        }`}
+                      >
+                        {order.delhiveryStatus ||
+                          (order.delhiveryWaybill
+                            ? "Shipment Created"
+                            : "Not Created")}
+                      </span>
+                    </div>
+
+                    {order.delhiveryWaybill && (
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[1px] text-[#999]">
+                          Delhivery Waybill
+                        </p>
+
+                        <p className="mt-0.5 text-xs font-semibold text-[#333]">
+                          {order.delhiveryWaybill}
+                        </p>
+                      </div>
+                    )}
+
+                    {!order.delhiveryWaybill && (
+                      <button
+                        type="button"
+                        disabled={
+                          order.paymentStatus?.toLowerCase() !== "paid" ||
+                          shippingAction?.orderId === order._id
+                        }
+                        onClick={() => onCreateShipment(order)}
+                        className="flex h-8 items-center gap-2 rounded-lg border border-[#C9A96E] px-3 text-[9px] font-semibold uppercase tracking-[1px] text-[#A47A36] transition hover:bg-[#C9A96E] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Truck size={13} />
+
+                        {shippingAction?.orderId === order._id &&
+                        shippingAction?.type === "create"
+                          ? "Creating..."
+                          : "Create Shipment"}
+                      </button>
+                    )}
+
+                    {order.delhiveryWaybill && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={shippingAction?.orderId === order._id}
+                          onClick={() => onTrackShipment(order)}
+                          className="flex h-8 items-center gap-2 rounded-lg border border-[#347C7C] px-3 text-[9px] font-semibold uppercase tracking-[1px] text-[#347C7C] transition hover:bg-[#347C7C] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Truck size={13} />
+
+                          {shippingAction?.orderId === order._id &&
+                          shippingAction?.type === "track"
+                            ? "Tracking..."
+                            : "Track"}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={shippingAction?.orderId === order._id}
+                          onClick={() => onGenerateLabel(order)}
+                          className="flex h-8 items-center gap-2 rounded-lg border border-[#C9A96E] px-3 text-[9px] font-semibold uppercase tracking-[1px] text-[#A47A36] transition hover:bg-[#C9A96E] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Package size={13} />
+
+                          {shippingAction?.orderId === order._id &&
+                          shippingAction?.type === "label"
+                            ? "Generating..."
+                            : "Label"}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={shippingAction?.orderId === order._id}
+                          onClick={() => onCreatePickup(order)}
+                          className="flex h-8 items-center gap-2 rounded-lg border border-[#7553B3] px-3 text-[9px] font-semibold uppercase tracking-[1px] text-[#7553B3] transition hover:bg-[#7553B3] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <CalendarDays size={13} />
+
+                          {shippingAction?.orderId === order._id &&
+                          shippingAction?.type === "pickup"
+                            ? "Scheduling..."
+                            : "Pickup"}
+                        </button>
+                      </div>
+                    )}
+
+                    {order.trackingUrl && (
+                      <a
+                        href={order.trackingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#E5DED3] px-3 text-[9px] font-semibold uppercase tracking-[1px] text-[#666] transition hover:border-[#C9A96E] hover:text-[#C9A96E]"
+                      >
+                        <ExternalLink size={13} />
+                        API Tracking
+                      </a>
+                    )}
                   </div>
                 </td>
 
@@ -1035,6 +1330,61 @@ function OrderDetailsModal({
             )}
           </div>
 
+          {/* DELHIVERY SHIPPING */}
+
+          {(order.delhiveryWaybill ||
+            order.delhiveryPickupId ||
+            order.delhiveryStatus ||
+            order.delhiveryStatusCode ||
+            order.awbCode ||
+            order.trackingUrl) && (
+            <div className="rounded-2xl border border-[#E7E1D7] bg-[#FCFBF8] p-5">
+              <div className="flex items-center gap-2">
+                <Truck size={17} className="text-[#C9A96E]" />
+
+                <h3 className="text-xs font-semibold uppercase tracking-[1px]">
+                  Delhivery Shipping Details
+                </h3>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <ShippingDetail
+                  label="Delhivery Status"
+                  value={order.delhiveryStatus || "Not created"}
+                />
+
+                <ShippingDetail
+                  label="Waybill / AWB"
+                  value={
+                    order.delhiveryWaybill || order.awbCode || "Not assigned"
+                  }
+                />
+
+                <ShippingDetail
+                  label="Pickup ID"
+                  value={order.delhiveryPickupId || "—"}
+                />
+
+                <ShippingDetail
+                  label="Status Code"
+                  value={order.delhiveryStatusCode || "—"}
+                />
+              </div>
+
+              {order.trackingUrl && (
+                <a
+                  href={order.trackingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#C9A96E] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[1px] text-[#A47A36] transition hover:bg-[#C9A96E] hover:text-white"
+                >
+                  <ExternalLink size={14} />
+                  Open Tracking API
+                </a>
+              )}
+            </div>
+          )}
+
           {/* ITEMS */}
 
           <div>
@@ -1123,6 +1473,20 @@ function OrderDetailsModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ShippingDetail({ label, value }) {
+  return (
+    <div>
+      <p className="text-[9px] font-semibold uppercase tracking-[1.5px] text-[#999]">
+        {label}
+      </p>
+
+      <p className="mt-1 break-all text-sm font-semibold text-[#444]">
+        {value}
+      </p>
     </div>
   );
 }

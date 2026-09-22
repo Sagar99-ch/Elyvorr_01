@@ -1,11 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * ==================================================
- * GET ALL ACTIVE PRODUCTS
- * ==================================================
- */
+// =====================================================
+// GET ALL PRODUCTS
+// =====================================================
+
 export const getAll = query({
   args: {
     includeInactive: v.optional(v.boolean()),
@@ -22,55 +21,67 @@ export const getAll = query({
   },
 });
 
-/**
- * ==================================================
- * GET SINGLE PRODUCT
- * ==================================================
- */
+// =====================================================
+// GET PRODUCT BY ID
+// =====================================================
+
 export const getById = query({
   args: {
     id: v.id("products"),
   },
 
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const product = await ctx.db.get(args.id);
+
+    return product;
   },
 });
 
-/**
- * ==================================================
- * ADD PRODUCT
- * ==================================================
- */
+// =====================================================
+// ADD PRODUCT
+// =====================================================
+
 export const add = mutation({
   args: {
     name: v.string(),
     volume: v.string(),
-    price: v.number(),
-    oldPrice: v.optional(v.number()),
+    price: v.float64(),
+    oldPrice: v.optional(v.float64()),
 
-    // =================================================
-    // ORDER DISCOUNT
-    // Example: 10 = 10%
-    // =================================================
-    discount: v.optional(v.number()),
+    // Order Summary discount
+    discount: v.optional(v.float64()),
 
-    reviews: v.number(),
+    reviews: v.optional(v.float64()),
     badge: v.optional(v.string()),
-
-    // Main product image
-    image: v.string(),
-
-    // Additional product images
+    image: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
+    stock: v.float64(),
 
-    stock: v.number(),
+    // =================================================
+    // DELHIVERY SHIPPING DETAILS
+    // =================================================
+
+    sku: v.optional(v.string()),
+    weight: v.optional(v.float64()),
+    length: v.optional(v.float64()),
+    breadth: v.optional(v.float64()),
+    height: v.optional(v.float64()),
+
+    isActive: v.optional(v.boolean()),
   },
 
   handler: async (ctx, args) => {
-    // =================================================
-    // VALIDATE DISCOUNT
-    // =================================================
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
+
+    if (args.price < 0) {
+      throw new Error("Price cannot be negative.");
+    }
+
+    if (args.stock < 0) {
+      throw new Error("Stock cannot be negative.");
+    }
 
     if (
       args.discount !== undefined &&
@@ -79,181 +90,171 @@ export const add = mutation({
       throw new Error("Discount must be between 0 and 100.");
     }
 
-    // =================================================
-    // CREATE PRODUCT
-    // =================================================
+    if (args.weight !== undefined && args.weight <= 0) {
+      throw new Error("Weight must be greater than 0.");
+    }
 
-    const productId = await ctx.db.insert("products", {
+    if (args.length !== undefined && args.length <= 0) {
+      throw new Error("Length must be greater than 0.");
+    }
+
+    if (args.breadth !== undefined && args.breadth <= 0) {
+      throw new Error("Breadth must be greater than 0.");
+    }
+
+    if (args.height !== undefined && args.height <= 0) {
+      throw new Error("Height must be greater than 0.");
+    }
+
+    // -----------------------------
+    // INSERT PRODUCT
+    // -----------------------------
+
+    return await ctx.db.insert("products", {
       name: args.name,
       volume: args.volume,
       price: args.price,
       oldPrice: args.oldPrice,
 
-      discount: args.discount,
+      // Discount percentage
+      discount: args.discount ?? 0,
 
-      reviews: args.reviews,
+      reviews: args.reviews ?? 0,
       badge: args.badge,
-
       image: args.image,
       images: args.images,
-
       stock: args.stock,
 
-      isActive: true,
+      // Delhivery
+      sku: args.sku,
+      weight: args.weight,
+      length: args.length,
+      breadth: args.breadth,
+      height: args.height,
+
+      isActive: args.isActive ?? true,
+
       createdAt: Date.now(),
     });
-
-    return productId;
   },
 });
 
-/**
- * ==================================================
- * UPDATE PRODUCT
- * ==================================================
- */
+// =====================================================
+// UPDATE PRODUCT
+// =====================================================
+
 export const update = mutation({
   args: {
     id: v.id("products"),
 
     name: v.optional(v.string()),
     volume: v.optional(v.string()),
-    price: v.optional(v.number()),
-    oldPrice: v.optional(v.number()),
+    price: v.optional(v.float64()),
+    oldPrice: v.optional(v.float64()),
 
-    // =================================================
-    // ORDER DISCOUNT
-    // Example: 10 = 10%
-    // =================================================
-    discount: v.optional(v.number()),
+    // Order Summary discount
+    discount: v.optional(v.float64()),
 
-    reviews: v.optional(v.number()),
+    reviews: v.optional(v.float64()),
     badge: v.optional(v.string()),
-
     image: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
+    stock: v.optional(v.float64()),
 
-    stock: v.optional(v.number()),
+    // =================================================
+    // DELHIVERY SHIPPING DETAILS
+    // =================================================
+
+    sku: v.optional(v.string()),
+    weight: v.optional(v.float64()),
+    length: v.optional(v.float64()),
+    breadth: v.optional(v.float64()),
+    height: v.optional(v.float64()),
+
     isActive: v.optional(v.boolean()),
   },
 
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    // -----------------------------
+    // FIND PRODUCT
+    // -----------------------------
 
-    // =================================================
-    // CHECK PRODUCT
-    // =================================================
+    const product = await ctx.db.get(args.id);
 
-    const existingProduct = await ctx.db.get(id);
-
-    if (!existingProduct) {
-      throw new Error("Product not found");
+    if (!product) {
+      throw new Error("Product not found.");
     }
 
-    // =================================================
-    // VALIDATE DISCOUNT
-    // =================================================
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
+
+    if (args.price !== undefined && args.price < 0) {
+      throw new Error("Price cannot be negative.");
+    }
+
+    if (args.stock !== undefined && args.stock < 0) {
+      throw new Error("Stock cannot be negative.");
+    }
 
     if (
-      updates.discount !== undefined &&
-      (updates.discount < 0 || updates.discount > 100)
+      args.discount !== undefined &&
+      (args.discount < 0 || args.discount > 100)
     ) {
       throw new Error("Discount must be between 0 and 100.");
     }
 
-    // =================================================
-    // REMOVE UNDEFINED VALUES
-    // =================================================
+    if (args.weight !== undefined && args.weight <= 0) {
+      throw new Error("Weight must be greater than 0.");
+    }
 
-    const cleanUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([, value]) => value !== undefined)
-    );
+    if (args.length !== undefined && args.length <= 0) {
+      throw new Error("Length must be greater than 0.");
+    }
 
-    // =================================================
-    // UPDATE
-    // =================================================
+    if (args.breadth !== undefined && args.breadth <= 0) {
+      throw new Error("Breadth must be greater than 0.");
+    }
 
-    await ctx.db.patch(id, cleanUpdates);
+    if (args.height !== undefined && args.height <= 0) {
+      throw new Error("Height must be greater than 0.");
+    }
+
+    // -----------------------------
+    // REMOVE ID FROM PATCH OBJECT
+    // -----------------------------
+
+    const { id, ...updates } = args;
+
+    // -----------------------------
+    // UPDATE PRODUCT
+    // -----------------------------
+
+    await ctx.db.patch(id, updates);
 
     return await ctx.db.get(id);
   },
 });
 
-/**
- * ==================================================
- * DELETE / REMOVE PRODUCT
- *
- * PERMANENT DELETE
- * ==================================================
- */
-export const remove = mutation({
-  args: {
-    id: v.id("products"),
-  },
+// =====================================================
+// UPDATE STOCK
+// =====================================================
 
-  handler: async (ctx, args) => {
-    // =================================================
-    // CHECK PRODUCT
-    // =================================================
-
-    const product = await ctx.db.get(args.id);
-
-    if (!product) {
-      throw new Error("Product not found");
-    }
-
-    // =================================================
-    // REMOVE PRODUCT FROM ALL CARTS
-    //
-    // We use the "by_session" index because the
-    // "by_session_product" index requires sessionId
-    // before productId.
-    // =================================================
-
-    const cartItems = await ctx.db
-      .query("cart")
-      .withIndex("by_session")
-      .collect();
-
-    for (const cartItem of cartItems) {
-      if (cartItem.productId === args.id) {
-        await ctx.db.delete(cartItem._id);
-      }
-    }
-
-    // =================================================
-    // PERMANENTLY DELETE PRODUCT
-    // =================================================
-
-    await ctx.db.delete(args.id);
-
-    return {
-      success: true,
-      message: "Product deleted permanently.",
-    };
-  },
-});
-
-/**
- * ==================================================
- * UPDATE STOCK
- * ==================================================
- */
 export const updateStock = mutation({
   args: {
     id: v.id("products"),
-    stock: v.number(),
+    stock: v.float64(),
   },
 
   handler: async (ctx, args) => {
+    if (args.stock < 0) {
+      throw new Error("Stock cannot be negative.");
+    }
+
     const product = await ctx.db.get(args.id);
 
     if (!product) {
-      throw new Error("Product not found");
-    }
-
-    if (args.stock < 0) {
-      throw new Error("Stock cannot be negative");
+      throw new Error("Product not found.");
     }
 
     await ctx.db.patch(args.id, {
@@ -261,5 +262,29 @@ export const updateStock = mutation({
     });
 
     return await ctx.db.get(args.id);
+  },
+});
+
+// =====================================================
+// REMOVE PRODUCT
+// =====================================================
+
+export const remove = mutation({
+  args: {
+    id: v.id("products"),
+  },
+
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.id);
+
+    if (!product) {
+      throw new Error("Product not found.");
+    }
+
+    await ctx.db.delete(args.id);
+
+    return {
+      success: true,
+    };
   },
 });

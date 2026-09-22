@@ -58,7 +58,7 @@ export const createPendingOrder = mutation({
 
     /**
      * ================================================
-     * GET PRODUCTS + BUILD ORDER ITEMS
+     * BUILD ORDER ITEMS
      * ================================================
      */
 
@@ -66,10 +66,15 @@ export const createPendingOrder = mutation({
 
     let subtotal = 0;
     let discount = 0;
+
     let removedInvalidItem = false;
 
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
+
+      /**
+       * PRODUCT NOT FOUND
+       */
 
       if (!product) {
         await ctx.db.delete(cartItem._id);
@@ -77,35 +82,106 @@ export const createPendingOrder = mutation({
         continue;
       }
 
+      /**
+       * PRODUCT INACTIVE
+       */
+
       if (!product.isActive) {
         await ctx.db.delete(cartItem._id);
         removedInvalidItem = true;
         continue;
       }
 
+      /**
+       * STOCK CHECK
+       */
+
       if (product.stock < cartItem.quantity) {
         throw new Error(`${product.name} does not have enough stock.`);
       }
 
+      /**
+       * BASIC VALUES
+       */
+
       const sellingPrice = Number(product.price || 0);
       const quantity = Number(cartItem.quantity || 0);
 
-      subtotal += sellingPrice * quantity;
+      /**
+       * PRICE VALIDATION
+       */
 
-      const oldPrice = Number(product.oldPrice || 0);
-
-      if (oldPrice > sellingPrice) {
-        discount += (oldPrice - sellingPrice) * quantity;
+      if (sellingPrice < 0) {
+        throw new Error(`${product.name} has an invalid selling price.`);
       }
 
-      orderItems.push({
+      if (quantity <= 0) {
+        throw new Error(`${product.name} has an invalid quantity.`);
+      }
+
+      /**
+       * ================================================
+       * SUBTOTAL
+       * ================================================
+       */
+
+      const itemSubtotal = sellingPrice * quantity;
+
+      subtotal += itemSubtotal;
+
+      /**
+       * ================================================
+       * PRODUCT-SPECIFIC PERCENTAGE DISCOUNT
+       *
+       * Example:
+       *
+       * Price = ₹299
+       * Discount = 1%
+       * Quantity = 1
+       *
+       * Discount = ₹2.99
+       *
+       * oldPrice is NOT used for calculation.
+       * ================================================
+       */
+
+      const productDiscount = Math.min(
+        100,
+        Math.max(0, Number(product.discount || 0))
+      );
+
+      const itemDiscount = (sellingPrice * productDiscount) / 100;
+
+      discount += itemDiscount * quantity;
+
+      /**
+       * ================================================
+       * SHIPPING PRODUCT SNAPSHOT
+       *
+       * These values are copied from the product into
+       * the order so Delhivery can use the original
+       * shipping information even if the product is
+       * edited later.
+       * ================================================
+       */
+
+      const item = {
         productId: product._id,
         name: product.name,
         volume: product.volume,
         price: sellingPrice,
         quantity,
         image: product.image,
-      });
+
+        // Delhivery shipping data
+        sku: product.sku,
+        weight: product.weight,
+        length: product.length,
+        breadth: product.breadth,
+        height: product.height,
+      };
+
+      orderItems.push(item);
     }
 
     /**
@@ -128,13 +204,32 @@ export const createPendingOrder = mutation({
 
     /**
      * ================================================
+     * ROUND DISCOUNT
+     * ================================================
+     */
+
+    discount = Number(discount.toFixed(2));
+
+    /**
+     * ================================================
      * ORDER TOTALS
      * ================================================
      */
 
     const shipping = 1;
     const gst = 0;
-    const total = subtotal + shipping + gst;
+
+    /**
+     * subtotal
+     *    - discount
+     *    + shipping
+     *    + gst
+     *    = total
+     */
+
+    const total = Number(
+      Math.max(0, subtotal - discount + shipping + gst).toFixed(2)
+    );
 
     /**
      * ================================================
@@ -150,15 +245,26 @@ export const createPendingOrder = mutation({
 
       orderNumber,
 
+      /**
+       * CUSTOMER
+       */
+
       customerName: address.fullName,
       mobile: address.mobile,
-
       address: address.address,
       city: address.city,
       state: address.state,
       pincode: address.pincode,
 
+      /**
+       * PRODUCTS
+       */
+
       items: orderItems,
+
+      /**
+       * PAYMENT SUMMARY
+       */
 
       subtotal,
       discount,
@@ -166,9 +272,21 @@ export const createPendingOrder = mutation({
       gst,
       total,
 
+      /**
+       * PAYMENT
+       */
+
       paymentStatus: "pending",
 
+      /**
+       * ORDER STATUS
+       */
+
       orderStatus: "pending",
+
+      /**
+       * TIMESTAMPS
+       */
 
       createdAt: now,
       updatedAt: now,
@@ -183,11 +301,13 @@ export const createPendingOrder = mutation({
     return {
       orderId,
       orderNumber,
+
       subtotal,
       discount,
       shipping,
       gst,
       total,
+
       itemCount: orderItems.reduce((count, item) => count + item.quantity, 0),
     };
   },
@@ -341,11 +461,6 @@ export const getAllOrders = query({
  * ==================================================
  * ADMIN — UPDATE ORDER STATUS
  * ==================================================
- *
- * Customer tracking page is connected to the same
- * order record, so changing the status here will
- * automatically update the tracking page.
- * ==================================================
  */
 
 export const updateOrderStatus = mutation({
@@ -363,11 +478,6 @@ export const updateOrderStatus = mutation({
 
     /**
      * Normalize status
-     *
-     * Example:
-     * "PACKED"     -> "packed"
-     * "Packed"     -> "packed"
-     * " shipped "  -> "shipped"
      */
 
     const normalizedStatus = String(args.orderStatus || "")
@@ -375,7 +485,7 @@ export const updateOrderStatus = mutation({
       .toLowerCase();
 
     /**
-     * Allowed order statuses
+     * Allowed statuses
      */
 
     const allowedStatuses = [
@@ -414,33 +524,8 @@ export const updateOrderStatus = mutation({
  * CUSTOMER — TRACK ORDER BY ORDER NUMBER
  * ==================================================
  *
- * Used by the public customer tracking page.
- *
- * IMPORTANT:
- * This query is reactive.
- *
- * Admin changes:
- *
- * CONFIRMED
- *     ↓
- * PACKED
- *     ↓
- * SHIPPED
- *     ↓
- * DELIVERED
- *
- * Customer tracking page automatically receives
- * the updated order status through Convex.
- *
- * Sensitive customer information such as:
- * - mobile
- * - address
- * - city
- * - state
- * - pincode
- * - sessionId
- *
- * is intentionally NOT returned.
+ * Sensitive customer information is intentionally
+ * NOT returned.
  * ==================================================
  */
 
@@ -470,7 +555,7 @@ export const getOrderTrackingByNumber = query({
     }
 
     /**
-     * Return customer-safe tracking data
+     * Customer-safe tracking data
      */
 
     return {
@@ -508,11 +593,38 @@ export const getOrderTrackingByNumber = query({
       items: order.items,
 
       /**
+       * =================================================
+       * COMMON SHIPPING
+       * =================================================
+       */
+
+      awbCode: order.awbCode,
+      courierName: order.courierName,
+      shippingStatus: order.shippingStatus,
+      trackingUrl: order.trackingUrl,
+
+      /**
+       * =================================================
+       * DELHIVERY
+       * =================================================
+       */
+
+      delhiveryWaybill: order.delhiveryWaybill,
+      delhiveryPickupId: order.delhiveryPickupId,
+      delhiveryStatus: order.delhiveryStatus,
+      delhiveryStatusCode: order.delhiveryStatusCode,
+      delhiveryManifestedAt: order.delhiveryManifestedAt,
+
+      /**
+       * =================================================
        * TIMESTAMPS
+       * =================================================
        */
 
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      shippedAt: order.shippedAt,
+      deliveredAt: order.deliveredAt,
     };
   },
 });
