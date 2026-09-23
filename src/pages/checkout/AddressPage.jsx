@@ -7,7 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 function getSessionId() {
-  const storageKey = "elyvorr_session_id";
+  const storageKey = "elyvorr_cart_session_v2";
 
   let sessionId = localStorage.getItem(storageKey);
 
@@ -18,6 +18,7 @@ function getSessionId() {
 
   return sessionId;
 }
+
 
 function AddressPage() {
   const navigate = useNavigate();

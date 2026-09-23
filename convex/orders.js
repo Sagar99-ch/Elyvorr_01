@@ -1,7 +1,15 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import { requireAdmin } from "./lib/requireAdmin";
+
+/**
+ * ==================================================
+ * CONSTANTS
+ * ==================================================
+ */
+
+const STOCK_RESERVATION_MINUTES = 30;
+const STOCK_RESERVATION_MS = STOCK_RESERVATION_MINUTES * 60 * 1000;
 
 /**
  * ==================================================
@@ -18,7 +26,69 @@ function generateOrderNumber() {
 
 /**
  * ==================================================
+ * CUSTOMER-SAFE ORDER RESPONSE
+ * ==================================================
+ */
+
+function customerSafeOrder(order) {
+  return {
+    _id: order._id,
+    orderNumber: order.orderNumber,
+
+    paymentStatus: order.paymentStatus,
+    paymentId: order.paymentId,
+
+    orderStatus: order.orderStatus,
+
+    subtotal: order.subtotal,
+    discount: order.discount,
+    shipping: order.shipping,
+    gst: order.gst,
+    total: order.total,
+
+    items: order.items,
+
+    awbCode: order.awbCode,
+    courierName: order.courierName,
+    shippingStatus: order.shippingStatus,
+    trackingUrl: order.trackingUrl,
+
+    delhiveryWaybill: order.delhiveryWaybill,
+    delhiveryPickupId: order.delhiveryPickupId,
+    delhiveryStatus: order.delhiveryStatus,
+    delhiveryStatusCode: order.delhiveryStatusCode,
+    delhiveryManifestedAt: order.delhiveryManifestedAt,
+
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    shippedAt: order.shippedAt,
+    deliveredAt: order.deliveredAt,
+  };
+}
+
+/**
+ * ==================================================
  * CREATE PENDING ORDER
+ * ==================================================
+ *
+ * IMPORTANT:
+ *
+ * 1. Server calculates prices.
+ * 2. Server checks stock.
+ * 3. Server reserves/decrements stock.
+ * 4. Reservation expires after 30 minutes.
+ * 5. Discount is DISPLAY SAVING only.
+ * 6. Discount is NOT subtracted from selling price.
+ *
+ * Example:
+ *
+ * MRP       ₹399
+ * Sale      ₹1
+ * Saving    ₹398
+ * Shipping  ₹1
+ *
+ * Customer pays ₹2.
+ *
  * ==================================================
  */
 
@@ -28,6 +98,10 @@ export const createPendingOrder = mutation({
   },
 
   handler: async (ctx, args) => {
+    if (!args.sessionId.trim()) {
+      throw new Error("Invalid checkout session.");
+    }
+
     /**
      * ================================================
      * GET ADDRESS
@@ -60,6 +134,69 @@ export const createPendingOrder = mutation({
 
     /**
      * ================================================
+     * CHECK FOR EXISTING ACTIVE RESERVATIONS
+     * ================================================
+     *
+     * Prevents accidental duplicate stock reservation
+     * when customer refreshes/clicks payment repeatedly.
+     *
+     * Expired reservations are released first.
+     * ================================================
+     */
+
+    const existingOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    const now = Date.now();
+
+    for (const existingOrder of existingOrders) {
+      if (
+        existingOrder.paymentStatus === "pending" &&
+        existingOrder.stockReserved === true
+      ) {
+        const expiry = Number(existingOrder.stockReservationExpiresAt || 0);
+
+        /**
+         * Existing reservation is still active.
+         */
+        if (expiry > now) {
+          throw new Error(
+            "You already have an active payment order. Please complete payment or wait for the current reservation to expire."
+          );
+        }
+
+        /**
+         * Existing reservation expired.
+         * Release stock.
+         */
+
+        for (const item of existingOrder.items || []) {
+          const product = await ctx.db.get(item.productId);
+
+          if (product) {
+            const currentStock = Number(product.stock || 0);
+            const quantity = Number(item.quantity || 0);
+
+            await ctx.db.patch(product._id, {
+              stock: currentStock + quantity,
+            });
+          }
+        }
+
+        await ctx.db.patch(existingOrder._id, {
+          stockReserved: false,
+          stockReleasedAt: now,
+          paymentStatus: "cancelled",
+          orderStatus: "cancelled",
+          updatedAt: now,
+        });
+      }
+    }
+
+    /**
+     * ================================================
      * BUILD ORDER ITEMS
      * ================================================
      */
@@ -71,15 +208,32 @@ export const createPendingOrder = mutation({
 
     let removedInvalidItem = false;
 
+    /**
+     * ================================================
+     * VALIDATE ALL PRODUCTS FIRST
+     * ================================================
+     *
+     * IMPORTANT:
+     *
+     * We do NOT decrement stock during this loop.
+     *
+     * First validate everything.
+     * Then reserve everything.
+     *
+     * Convex mutation is transactional.
+     * ================================================
+     */
+
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
 
       /**
-       * PRODUCT NOT FOUND
+       * PRODUCT DOES NOT EXIST
        */
 
       if (!product) {
         await ctx.db.delete(cartItem._id);
+
         removedInvalidItem = true;
         continue;
       }
@@ -90,54 +244,64 @@ export const createPendingOrder = mutation({
 
       if (!product.isActive) {
         await ctx.db.delete(cartItem._id);
+
         removedInvalidItem = true;
         continue;
       }
 
       /**
-       * STOCK CHECK
+       * QUANTITY
        */
 
-      if (product.stock < cartItem.quantity) {
-        throw new Error(`${product.name} does not have enough stock.`);
-      }
-
-      /**
-       * BASIC VALUES
-       */
-
-      const sellingPrice = Number(product.price || 0);
       const quantity = Number(cartItem.quantity || 0);
 
-      /**
-       * PRICE VALIDATION
-       */
-
-      if (sellingPrice < 0) {
-        throw new Error(`${product.name} has an invalid selling price.`);
-      }
-
-      if (!Number.isInteger(quantity)) {
+      if (!Number.isFinite(quantity) || quantity <= 0) {
         throw new Error(`${product.name} has an invalid quantity.`);
       }
 
+      if (!Number.isInteger(quantity)) {
+        throw new Error(`${product.name} quantity must be a whole number.`);
+      }
+
       /**
-       * ================================================
-       * RESERVE STOCK
-       * ================================================
-       * Stock is reserved in the same Convex mutation that
-       * creates the pending order. This prevents two checkout
-       * requests from both buying the last available units.
+       * SELLING PRICE
        */
 
-      await ctx.db.patch(product._id, {
-        stock: product.stock - quantity,
-      });
+      const sellingPrice = Number(product.price || 0);
+
+      if (!Number.isFinite(sellingPrice) || sellingPrice < 0) {
+        throw new Error(`${product.name} has an invalid selling price.`);
+      }
 
       /**
-       * ================================================
+       * STOCK
+       */
+
+      const availableStock = Number(product.stock || 0);
+
+      if (!Number.isFinite(availableStock) || availableStock < quantity) {
+        throw new Error(
+          `${product.name} does not have enough stock. Available stock: ${Math.max(
+            0,
+            availableStock
+          )}.`
+        );
+      }
+
+      /**
+       * ==============================================
        * SUBTOTAL
-       * ================================================
+       * ==============================================
+       *
+       * This is actual selling price.
+       *
+       * Example:
+       *
+       * price = ₹1
+       * quantity = 5
+       *
+       * subtotal = ₹5
+       * ==============================================
        */
 
       const itemSubtotal = sellingPrice * quantity;
@@ -145,63 +309,67 @@ export const createPendingOrder = mutation({
       subtotal += itemSubtotal;
 
       /**
-       * ================================================
-       * PRODUCT-SPECIFIC PERCENTAGE DISCOUNT
+       * ==============================================
+       * DISPLAY SAVING
+       * ==============================================
+       *
+       * oldPrice is only used to show customer
+       * how much they are saving.
+       *
+       * IMPORTANT:
+       *
+       * This amount is NOT subtracted again.
        *
        * Example:
        *
-       * Price = ₹299
-       * Discount = 1%
-       * Quantity = 1
+       * oldPrice = ₹399
+       * price    = ₹1
        *
-       * Discount = ₹2.99
+       * saving = ₹398
        *
-       * oldPrice is NOT used for calculation.
-       * ================================================
+       * payable remains ₹1.
+       * ==============================================
        */
 
-      const productDiscount = Math.min(
-        100,
-        Math.max(0, Number(product.discount || 0))
-      );
+      const oldPrice = Number(product.oldPrice || 0);
 
-      const itemDiscount = (sellingPrice * productDiscount) / 100;
-
-      discount += itemDiscount * quantity;
+      if (Number.isFinite(oldPrice) && oldPrice > sellingPrice) {
+        discount += (oldPrice - sellingPrice) * quantity;
+      }
 
       /**
-       * ================================================
-       * SHIPPING PRODUCT SNAPSHOT
-       *
-       * These values are copied from the product into
-       * the order so Delhivery can use the original
-       * shipping information even if the product is
-       * edited later.
-       * ================================================
+       * ==============================================
+       * ORDER ITEM SNAPSHOT
+       * ==============================================
        */
 
-      const item = {
+      orderItems.push({
         productId: product._id,
+
         name: product.name,
+
         volume: product.volume,
+
         price: sellingPrice,
+
         quantity,
+
         image: product.image,
 
-        // Delhivery shipping data
+        /**
+         * Delhivery shipping snapshot
+         */
         sku: product.sku,
         weight: product.weight,
         length: product.length,
         breadth: product.breadth,
         height: product.height,
-      };
-
-      orderItems.push(item);
+      });
     }
 
     /**
      * ================================================
-     * HANDLE REMOVED PRODUCTS
+     * INVALID PRODUCTS HANDLING
      * ================================================
      */
 
@@ -219,32 +387,82 @@ export const createPendingOrder = mutation({
 
     /**
      * ================================================
-     * ROUND DISCOUNT
+     * ROUND VALUES
      * ================================================
      */
+
+    subtotal = Number(subtotal.toFixed(2));
 
     discount = Number(discount.toFixed(2));
 
     /**
      * ================================================
-     * ORDER TOTALS
+     * SHIPPING
      * ================================================
      */
 
     const shipping = 1;
+
     const gst = 0;
 
     /**
-     * subtotal
-     *    - discount
-     *    + shipping
-     *    + gst
-     *    = total
+     * ================================================
+     * FINAL TOTAL
+     * ================================================
+     *
+     * IMPORTANT:
+     *
+     * DO NOT:
+     *
+     * subtotal - discount
+     *
+     * because discount is already represented in
+     * product.price.
+     *
+     * Correct:
+     *
+     * subtotal + shipping + gst
+     * ================================================
      */
 
-    const total = Number(
-      Math.max(0, subtotal - discount + shipping + gst).toFixed(2)
-    );
+    const total = Number((subtotal + shipping + gst).toFixed(2));
+
+    /**
+     * ================================================
+     * RESERVE STOCK
+     * ================================================
+     *
+     * Stock is decremented immediately.
+     *
+     * Example:
+     *
+     * Stock before = 10
+     * Order qty    = 3
+     * Stock after  = 7
+     *
+     * Reservation lasts 30 minutes.
+     * ================================================
+     */
+
+    for (const item of orderItems) {
+      const product = await ctx.db.get(item.productId);
+
+      if (!product) {
+        throw new Error(`${item.name} is no longer available.`);
+      }
+
+      const currentStock = Number(product.stock || 0);
+
+      if (currentStock < item.quantity) {
+        throw new Error(
+          `${item.name} is no longer available in the requested quantity.`
+        );
+      }
+
+      await ctx.db.patch(product._id, {
+        stock: currentStock - item.quantity,
+      });
+    }
 
     /**
      * ================================================
@@ -253,7 +471,8 @@ export const createPendingOrder = mutation({
      */
 
     const orderNumber = generateOrderNumber();
-    const now = Date.now();
+
+    const stockReservationExpiresAt = now + STOCK_RESERVATION_MS;
 
     const orderId = await ctx.db.insert("orders", {
       sessionId: args.sessionId,
@@ -265,10 +484,15 @@ export const createPendingOrder = mutation({
        */
 
       customerName: address.fullName,
+
       mobile: address.mobile,
+
       address: address.address,
+
       city: address.city,
+
       state: address.state,
+
       pincode: address.pincode,
 
       /**
@@ -282,9 +506,19 @@ export const createPendingOrder = mutation({
        */
 
       subtotal,
+
+      /**
+       * This is display saving only.
+       */
       discount,
+
       shipping,
+
       gst,
+
+      /**
+       * Actual payable amount.
+       */
       total,
 
       /**
@@ -294,118 +528,55 @@ export const createPendingOrder = mutation({
       paymentStatus: "pending",
 
       /**
-       * ORDER STATUS
+       * ORDER
        */
 
       orderStatus: "pending",
 
       /**
-       * INVENTORY RESERVATION
-       *
-       * Reserved until payment succeeds or the reservation
-       * expires. The scheduled release mutation restores
-       * stock only while the order is still unpaid.
+       * STOCK RESERVATION
        */
+
       stockReserved: true,
+
       stockReservedAt: now,
-      stockReservationExpiresAt: now + 30 * 60 * 1000,
+
+      stockReservationExpiresAt,
 
       /**
        * TIMESTAMPS
        */
 
       createdAt: now,
+
       updatedAt: now,
     });
 
     /**
      * ================================================
-     * AUTO-RELEASE STOCK AFTER 30 MINUTES
-     * ================================================
-     */
-
-    await ctx.scheduler.runAt(
-      now + 30 * 60 * 1000,
-      internal.orders.releaseExpiredStock,
-      { orderId }
-    );
-
-    /**
-     * ================================================
-     * RETURN ORDER DATA
+     * RETURN
      * ================================================
      */
 
     return {
       orderId,
+
       orderNumber,
 
       subtotal,
+
       discount,
+
       shipping,
+
       gst,
+
       total,
+
+      stockReservationExpiresAt,
 
       itemCount: orderItems.reduce((count, item) => count + item.quantity, 0),
     };
-  },
-});
-
-/**
- * ==================================================
- * INTERNAL — RELEASE EXPIRED STOCK RESERVATION
- * ==================================================
- */
-
-export const releaseExpiredStock = internalMutation({
-  args: {
-    orderId: v.id("orders"),
-  },
-
-  handler: async (ctx, args) => {
-    const order = await ctx.db.get(args.orderId);
-
-    if (!order || !order.stockReserved) {
-      return { success: true, released: false };
-    }
-
-    // Payment already succeeded/cancelled/released elsewhere.
-    if (
-      order.paymentStatus !== "pending" ||
-      order.orderStatus === "cancelled"
-    ) {
-      return { success: true, released: false };
-    }
-
-    if (
-      order.stockReservationExpiresAt &&
-      Date.now() < order.stockReservationExpiresAt
-    ) {
-      return { success: true, released: false };
-    }
-
-    for (const item of order.items) {
-      const product = await ctx.db.get(item.productId);
-
-      if (product) {
-        await ctx.db.patch(product._id, {
-          stock: Math.max(
-            0,
-            Number(product.stock || 0) + Number(item.quantity || 0)
-          ),
-        });
-      }
-    }
-
-    await ctx.db.patch(args.orderId, {
-      stockReserved: false,
-      stockReleasedAt: Date.now(),
-      paymentStatus: "expired",
-      orderStatus: "cancelled",
-      updatedAt: Date.now(),
-    });
-
-    return { success: true, released: true };
   },
 });
 
@@ -421,12 +592,22 @@ export const getOrderByNumber = query({
   },
 
   handler: async (ctx, args) => {
-    return await ctx.db
+    const orderNumber = args.orderNumber.trim();
+
+    if (!orderNumber) {
+      return null;
+    }
+
+    const order = await ctx.db
       .query("orders")
-      .withIndex("by_order_number", (q) =>
-        q.eq("orderNumber", args.orderNumber.trim())
-      )
+      .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
       .unique();
+
+    if (!order) {
+      return null;
+    }
+
+    return customerSafeOrder(order);
   },
 });
 
@@ -434,15 +615,29 @@ export const getOrderByNumber = query({
  * ==================================================
  * GET ORDER BY ID
  * ==================================================
+ *
+ * Requires checkout session ownership.
+ * ==================================================
  */
 
 export const getOrderById = query({
   args: {
     orderId: v.id("orders"),
+    sessionId: v.string(),
   },
 
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.orderId);
+    const order = await ctx.db.get(args.orderId);
+
+    if (!order) {
+      return null;
+    }
+
+    if (order.sessionId !== args.sessionId) {
+      return null;
+    }
+
+    return customerSafeOrder(order);
   },
 });
 
@@ -458,11 +653,13 @@ export const getOrdersBySession = query({
   },
 
   handler: async (ctx, args) => {
-    return await ctx.db
+    const orders = await ctx.db
       .query("orders")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .order("desc")
       .collect();
+
+    return orders.map(customerSafeOrder);
   },
 });
 
@@ -470,16 +667,16 @@ export const getOrdersBySession = query({
  * ==================================================
  * MARK ORDER AS PAID
  * ==================================================
- * REMOVED (security fix): this mutation used to let
- * ANY caller mark ANY order as "paid" with a made-up
- * paymentId, with no signature or ownership check —
- * a direct payment-bypass exploit. It was unused by
- * the frontend. Payments are correctly confirmed only
- * through convex/payment.js (verifyPayment, which
- * checks the Razorpay HMAC signature) and the
- * razorpay-webhook route in convex/http.js. Do not
- * re-add a function like this without a signature
- * check identical to those two paths.
+ *
+ * REMOVED.
+ *
+ * Payment confirmation must ONLY happen through:
+ *
+ * convex/payment.js
+ *
+ * using verified Razorpay payment information.
+ *
+ * DO NOT add a public mark-as-paid mutation.
  * ==================================================
  */
 
@@ -487,14 +684,17 @@ export const getOrdersBySession = query({
  * ==================================================
  * CANCEL ORDER
  * ==================================================
+ *
+ * Customer can only cancel an order belonging to
+ * the same checkout session.
+ *
+ * If stock is still reserved, release it.
+ * ==================================================
  */
 
 export const cancelOrder = mutation({
   args: {
     orderId: v.id("orders"),
-    // Ownership check: caller must supply the same sessionId
-    // that created the order, so a random visitor cannot
-    // cancel someone else's order just by guessing/leaking an ID.
     sessionId: v.string(),
   },
 
@@ -505,39 +705,82 @@ export const cancelOrder = mutation({
       throw new Error("Order not found.");
     }
 
+    /**
+     * OWNERSHIP
+     */
+
     if (order.sessionId !== args.sessionId) {
       throw new Error("You are not authorized to cancel this order.");
     }
+
+    /**
+     * ALREADY PAID
+     */
 
     if (order.paymentStatus === "paid") {
       throw new Error("A paid order cannot be cancelled this way.");
     }
 
-    if (order.stockReserved) {
-      for (const item of order.items) {
+    /**
+     * ALREADY CANCELLED
+     */
+
+    if (
+      order.paymentStatus === "cancelled" ||
+      order.orderStatus === "cancelled"
+    ) {
+      return {
+        success: true,
+        alreadyCancelled: true,
+      };
+    }
+
+    /**
+     * ==============================================
+     * RELEASE RESERVED STOCK
+     * ==============================================
+     */
+
+    if (order.stockReserved === true) {
+      for (const item of order.items || []) {
         const product = await ctx.db.get(item.productId);
 
-        if (product) {
-          await ctx.db.patch(product._id, {
-            stock: Math.max(
-              0,
-              Number(product.stock || 0) + Number(item.quantity || 0)
-            ),
-          });
+        if (!product) {
+          /**
+           * Do not silently recreate deleted products.
+           * The order remains cancellable, but the deleted
+           * product cannot receive stock back.
+           */
+          continue;
         }
+
+        const currentStock = Number(product.stock || 0);
+
+        const quantity = Number(item.quantity || 0);
+
+        await ctx.db.patch(product._id, {
+          stock: currentStock + quantity,
+        });
       }
     }
 
+    const now = Date.now();
+
     await ctx.db.patch(args.orderId, {
       paymentStatus: "cancelled",
+
       orderStatus: "cancelled",
+
       stockReserved: false,
-      stockReleasedAt: Date.now(),
-      updatedAt: Date.now(),
+
+      stockReleasedAt: now,
+
+      updatedAt: now,
     });
 
     return {
       success: true,
+      alreadyCancelled: false,
     };
   },
 });
@@ -569,7 +812,9 @@ export const getAllOrders = query({
 export const updateOrderStatus = mutation({
   args: {
     sessionToken: v.string(),
+
     orderId: v.id("orders"),
+
     orderStatus: v.string(),
   },
 
@@ -582,17 +827,9 @@ export const updateOrderStatus = mutation({
       throw new Error("Order not found.");
     }
 
-    /**
-     * Normalize status
-     */
-
     const normalizedStatus = String(args.orderStatus || "")
       .trim()
       .toLowerCase();
-
-    /**
-     * Allowed statuses
-     */
 
     const allowedStatuses = [
       "pending",
@@ -608,18 +845,17 @@ export const updateOrderStatus = mutation({
       throw new Error("Invalid order status.");
     }
 
-    /**
-     * Update order
-     */
-
     await ctx.db.patch(args.orderId, {
       orderStatus: normalizedStatus,
+
       updatedAt: Date.now(),
     });
 
     return {
       success: true,
+
       orderId: args.orderId,
+
       orderStatus: normalizedStatus,
     };
   },
@@ -628,10 +864,6 @@ export const updateOrderStatus = mutation({
 /**
  * ==================================================
  * CUSTOMER — TRACK ORDER BY ORDER NUMBER
- * ==================================================
- *
- * Sensitive customer information is intentionally
- * NOT returned.
  * ==================================================
  */
 
@@ -647,10 +879,6 @@ export const getOrderTrackingByNumber = query({
       return null;
     }
 
-    /**
-     * Find order
-     */
-
     const order = await ctx.db
       .query("orders")
       .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
@@ -660,78 +888,7 @@ export const getOrderTrackingByNumber = query({
       return null;
     }
 
-    /**
-     * Customer-safe tracking data
-     */
-
-    return {
-      _id: order._id,
-
-      orderNumber: order.orderNumber,
-
-      /**
-       * PAYMENT
-       */
-
-      paymentStatus: order.paymentStatus,
-      paymentId: order.paymentId,
-
-      /**
-       * ORDER STATUS
-       */
-
-      orderStatus: order.orderStatus,
-
-      /**
-       * PAYMENT SUMMARY
-       */
-
-      subtotal: order.subtotal,
-      discount: order.discount,
-      shipping: order.shipping,
-      gst: order.gst,
-      total: order.total,
-
-      /**
-       * PRODUCTS
-       */
-
-      items: order.items,
-
-      /**
-       * =================================================
-       * COMMON SHIPPING
-       * =================================================
-       */
-
-      awbCode: order.awbCode,
-      courierName: order.courierName,
-      shippingStatus: order.shippingStatus,
-      trackingUrl: order.trackingUrl,
-
-      /**
-       * =================================================
-       * DELHIVERY
-       * =================================================
-       */
-
-      delhiveryWaybill: order.delhiveryWaybill,
-      delhiveryPickupId: order.delhiveryPickupId,
-      delhiveryStatus: order.delhiveryStatus,
-      delhiveryStatusCode: order.delhiveryStatusCode,
-      delhiveryManifestedAt: order.delhiveryManifestedAt,
-
-      /**
-       * =================================================
-       * TIMESTAMPS
-       * =================================================
-       */
-
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-      shippedAt: order.shippedAt,
-      deliveredAt: order.deliveredAt,
-    };
+    return customerSafeOrder(order);
   },
 });
 
@@ -744,6 +901,7 @@ export const getOrderTrackingByNumber = query({
 export const deleteOrder = mutation({
   args: {
     sessionToken: v.string(),
+
     orderId: v.id("orders"),
   },
 
@@ -756,10 +914,36 @@ export const deleteOrder = mutation({
       throw new Error("Order not found.");
     }
 
+    /**
+     * ==============================================
+     * IMPORTANT:
+     * ==============================================
+     *
+     * Do not allow deleting an active stock
+     * reservation without returning the stock.
+     */
+
+    if (order.stockReserved === true && order.paymentStatus !== "paid") {
+      for (const item of order.items || []) {
+        const product = await ctx.db.get(item.productId);
+
+        if (product) {
+          const currentStock = Number(product.stock || 0);
+
+          const quantity = Number(item.quantity || 0);
+
+          await ctx.db.patch(product._id, {
+            stock: currentStock + quantity,
+          });
+        }
+      }
+    }
+
     await ctx.db.delete(args.orderId);
 
     return {
       success: true,
+
       message: "Order deleted successfully.",
     };
   },

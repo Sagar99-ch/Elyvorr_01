@@ -2,10 +2,12 @@ import { internalMutation, internalQuery } from "./_generated/server";
 
 import { v } from "convex/values";
 
-// =====================================================
-// GET ORDER FOR PAYMENT
-// INTERNAL ONLY
-// =====================================================
+/**
+ * =====================================================
+ * GET ORDER FOR PAYMENT
+ * INTERNAL ONLY
+ * =====================================================
+ */
 
 export const getOrderForPayment = internalQuery({
   args: {
@@ -23,14 +25,22 @@ export const getOrderForPayment = internalQuery({
   },
 });
 
-// =====================================================
-// GET ORDER BY RAZORPAY ORDER ID
-// INTERNAL ONLY
-// =====================================================
-//
-// Used when we need to find a Convex order using the
-// Razorpay order ID.
-//
+/**
+ * =====================================================
+ * GET ORDER BY RAZORPAY ORDER ID
+ * INTERNAL ONLY
+ * =====================================================
+ *
+ * Used by Razorpay webhook.
+ *
+ * Razorpay Order ID
+ *        ↓
+ * Convex orders table
+ *        ↓
+ * Find matching order
+ *
+ * =====================================================
+ */
 
 export const getOrderByRazorpayOrderId = internalQuery({
   args: {
@@ -49,14 +59,17 @@ export const getOrderByRazorpayOrderId = internalQuery({
   },
 });
 
-// =====================================================
-// SAVE RAZORPAY ORDER ID
-// INTERNAL ONLY
-// =====================================================
+/**
+ * =====================================================
+ * SAVE RAZORPAY ORDER ID
+ * INTERNAL ONLY
+ * =====================================================
+ */
 
 export const saveRazorpayOrderId = internalMutation({
   args: {
     orderId: v.id("orders"),
+
     razorpayOrderId: v.string(),
   },
 
@@ -67,9 +80,14 @@ export const saveRazorpayOrderId = internalMutation({
       throw new Error("Order not found.");
     }
 
-    // -------------------------------------------------
-    // PREVENT REPLACING DIFFERENT RAZORPAY ORDER ID
-    // -------------------------------------------------
+    /**
+     * =============================================
+     * PREVENT REPLACING RAZORPAY ORDER ID
+     * =============================================
+     *
+     * Once a Razorpay Order ID has been linked,
+     * another Razorpay Order ID cannot replace it.
+     */
 
     if (
       order.razorpayOrderId &&
@@ -92,22 +110,27 @@ export const saveRazorpayOrderId = internalMutation({
   },
 });
 
-// =====================================================
-// MARK PAYMENT SUCCESS
-// INTERNAL ONLY
-// =====================================================
-//
-// Used by:
-// payment.verifyPayment()
-//
-// This is the browser/frontend verification path.
-//
-// Webhook has a separate mutation below.
-//
+/**
+ * =====================================================
+ * MARK PAYMENT SUCCESS
+ * INTERNAL ONLY
+ * =====================================================
+ *
+ * Called ONLY after:
+ *
+ * 1. Razorpay signature is verified
+ * 2. Razorpay Order ID is checked
+ * 3. Payment ID is received
+ *
+ * This function itself is NOT public.
+ *
+ * =====================================================
+ */
 
 export const markPaymentSuccess = internalMutation({
   args: {
     orderId: v.id("orders"),
+
     paymentId: v.string(),
   },
 
@@ -118,24 +141,52 @@ export const markPaymentSuccess = internalMutation({
       throw new Error("Order not found.");
     }
 
-    // -------------------------------------------------
-    // ALREADY PAID
-    // -------------------------------------------------
+    /**
+     * =============================================
+     * ALREADY PAID
+     * =============================================
+     *
+     * Makes payment confirmation idempotent.
+     */
 
     if (order.paymentStatus === "paid") {
       return {
         success: true,
+
         alreadyPaid: true,
+
         message: "Payment is already marked as paid.",
       };
     }
 
-    // -------------------------------------------------
-    // MARK PAYMENT AS PAID
-    // -------------------------------------------------
+    /**
+     * =============================================
+     * CHECK STOCK RESERVATION EXPIRY
+     * =============================================
+     *
+     * Order was created with a temporary stock
+     * reservation.
+     *
+     * Do not accept payment after reservation
+     * expiry.
+     */
 
-    // The stock was reserved when the pending order was created.
-    // Payment success permanently consumes that reservation.
+    if (
+      order.stockReserved &&
+      order.stockReservationExpiresAt &&
+      Date.now() >= order.stockReservationExpiresAt
+    ) {
+      throw new Error(
+        "This order's stock reservation has expired. Please create a new order."
+      );
+    }
+
+    /**
+     * =============================================
+     * MARK PAYMENT AS PAID
+     * =============================================
+     */
+
     await ctx.db.patch(args.orderId, {
       paymentStatus: "paid",
 
@@ -143,7 +194,16 @@ export const markPaymentSuccess = internalMutation({
 
       paymentId: args.paymentId,
 
+      /**
+       * Stock was already deducted when the
+       * pending order was created.
+       *
+       * Payment success permanently consumes
+       * the reservation.
+       */
+
       stockReserved: false,
+
       stockReleasedAt: undefined,
 
       updatedAt: Date.now(),
@@ -151,49 +211,67 @@ export const markPaymentSuccess = internalMutation({
 
     return {
       success: true,
+
       alreadyPaid: false,
+
       message: "Order marked as paid.",
     };
   },
 });
 
-// =====================================================
-// MARK PAYMENT SUCCESS BY RAZORPAY ORDER ID
-// INTERNAL ONLY
-// =====================================================
-//
-// USED BY:
-// Razorpay webhook
-//
-// Events:
-// - payment.captured
-// - order.paid
-//
-// Flow:
-//
-// Razorpay Order ID
-//       ↓
-// Find Convex Order
-//       ↓
-// Verify amount
-//       ↓
-// paymentStatus = paid
-//       ↓
-// orderStatus = confirmed
-//
-// =====================================================
+/**
+ * =====================================================
+ * MARK PAYMENT SUCCESS BY RAZORPAY ORDER ID
+ * INTERNAL ONLY
+ * =====================================================
+ *
+ * Used by:
+ *
+ * Razorpay webhook
+ *
+ * Events can include:
+ *
+ * - payment.captured
+ * - order.paid
+ *
+ * Flow:
+ *
+ * Razorpay Order ID
+ *        ↓
+ * Find Convex Order
+ *        ↓
+ * Verify amount
+ *        ↓
+ * Mark PAID
+ *
+ * =====================================================
+ */
 
 export const markPaymentSuccessByRazorpayOrderId = internalMutation({
   args: {
     razorpayOrderId: v.string(),
+
     paymentId: v.string(),
+
+    /**
+     * Razorpay sends amount in paise.
+     *
+     * Example:
+     *
+     * ₹999
+     * =
+     * 99900 paise
+     */
+
     amountPaise: v.number(),
   },
 
   handler: async (ctx, args) => {
-    // =================================================
-    // FIND ORDER USING INDEX
-    // =================================================
+    /**
+     * =============================================
+     * FIND ORDER
+     * =============================================
+     */
 
     const order = await ctx.db
       .query("orders")
@@ -202,9 +280,11 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
       )
       .unique();
 
-    // =================================================
-    // ORDER NOT FOUND
-    // =================================================
+    /**
+     * =============================================
+     * ORDER NOT FOUND
+     * =============================================
+     */
 
     if (!order) {
       console.error("=================================================");
@@ -217,50 +297,92 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
       return {
         success: false,
+
         orderFound: false,
+
         alreadyPaid: false,
+
         message: "Order not found.",
       };
     }
 
     console.log("ELYVORR WEBHOOK: ORDER FOUND", {
       orderId: order._id,
+
       orderNumber: order.orderNumber,
+
       razorpayOrderId: order.razorpayOrderId,
+
       paymentStatus: order.paymentStatus,
     });
 
-    // =================================================
-    // ALREADY PAID
-    // =================================================
+    /**
+     * =============================================
+     * ALREADY PAID
+     * =============================================
+     *
+     * Webhooks can be delivered more than once.
+     *
+     * Never process the same payment twice.
+     */
 
     if (order.paymentStatus === "paid") {
       console.log("ELYVORR WEBHOOK: ORDER ALREADY PAID", order.orderNumber);
 
       return {
         success: true,
+
         orderFound: true,
+
         alreadyPaid: true,
+
         orderId: order._id,
+
         orderNumber: order.orderNumber,
+
         paymentId: order.paymentId || args.paymentId,
+
         message: "Order already marked as paid.",
       };
     }
 
-    // =================================================
-    // VERIFY PAYMENT AMOUNT
-    // =================================================
-    //
-    // Order total is stored in rupees.
-    // Razorpay amount is received in paise.
-    //
-    // Example:
-    //
-    // Order total = ₹999
-    // Razorpay    = 99900 paise
-    //
-    // =================================================
+    /**
+     * =============================================
+     * CHECK STOCK RESERVATION
+     * =============================================
+     */
+
+    if (
+      order.stockReserved &&
+      order.stockReservationExpiresAt &&
+      Date.now() >= order.stockReservationExpiresAt
+    ) {
+      throw new Error("Order stock reservation has expired.");
+    }
+
+    /**
+     * =============================================
+     * VERIFY PAYMENT AMOUNT
+     * =============================================
+     *
+     * Convex:
+     *
+     * order.total = rupees
+     *
+     * Razorpay:
+     *
+     * amount = paise
+     *
+     * Example:
+     *
+     * Order total:
+     * ₹999
+     *
+     * Expected Razorpay:
+     * 99900 paise
+     *
+     * =============================================
+     */
 
     const expectedAmountPaise = Math.round(Number(order.total || 0) * 100);
 
@@ -274,9 +396,11 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
       receivedAmountPaise,
     });
 
-    // -------------------------------------------------
-    // Only validate when Razorpay provided amount
-    // -------------------------------------------------
+    /**
+     * =============================================
+     * AMOUNT MISMATCH
+     * =============================================
+     */
 
     if (
       receivedAmountPaise > 0 &&
@@ -297,9 +421,11 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
       throw new Error("Payment amount does not match order amount.");
     }
 
-    // =================================================
-    // MARK ORDER AS PAID
-    // =================================================
+    /**
+     * =============================================
+     * MARK ORDER PAID
+     * =============================================
+     */
 
     await ctx.db.patch(order._id, {
       paymentStatus: "paid",
@@ -308,15 +434,23 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
       paymentId: args.paymentId,
 
+      /**
+       * Stock was already deducted during
+       * createPendingOrder().
+       */
+
       stockReserved: false,
+
       stockReleasedAt: undefined,
 
       updatedAt: Date.now(),
     });
 
-    // =================================================
-    // SUCCESS LOG
-    // =================================================
+    /**
+     * =============================================
+     * SUCCESS LOG
+     * =============================================
+     */
 
     console.log("=================================================");
 
@@ -340,13 +474,17 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
     console.log("=================================================");
 
-    // =================================================
-    // RETURN SUCCESS
-    // =================================================
+    /**
+     * =============================================
+     * RETURN SUCCESS
+     * =============================================
+     */
 
     return {
       success: true,
+
       orderFound: true,
+
       alreadyPaid: false,
 
       orderId: order._id,

@@ -1,5 +1,7 @@
 import { createContext, useContext, useMemo, useState } from "react";
+
 import { useMutation, useQuery } from "convex/react";
+
 import { api } from "../../convex/_generated/api";
 
 const CartContext = createContext(null);
@@ -9,15 +11,24 @@ const CartContext = createContext(null);
 // =====================================================
 //
 // IMPORTANT:
-// Old key "elyvorr_session_id" is intentionally NOT used.
 //
-// We use a new versioned key so that any previously
-// shared/corrupted session IDs are completely abandoned.
+// We intentionally use a versioned session key.
 //
-// Every browser/device gets its own UUID.
+// Old keys such as:
+// - elyvorr_session_id
+//
+// are NOT used.
+//
+// This prevents an old/corrupted/shared browser session
+// from being reused.
+//
 // =====================================================
 
 const CART_SESSION_KEY = "elyvorr_cart_session_v2";
+
+// =====================================================
+// CREATE NEW SESSION
+// =====================================================
 
 function createNewSessionId() {
   const newSessionId = crypto.randomUUID();
@@ -31,11 +42,14 @@ function createNewSessionId() {
   return newSessionId;
 }
 
+// =====================================================
+// GET SESSION ID
+// =====================================================
+
 function getSessionId() {
   try {
     const existingSession = localStorage.getItem(CART_SESSION_KEY);
 
-    // Validate existing session
     if (
       existingSession &&
       typeof existingSession === "string" &&
@@ -65,9 +79,6 @@ export function CartProvider({ children }) {
   // ===================================================
 
   const [sessionId] = useState(() => getSessionId());
-
-  // Debug
-  console.log("ELYVORR CART SESSION V2:", sessionId);
 
   // ===================================================
   // CART QUERY
@@ -108,15 +119,11 @@ export function CartProvider({ children }) {
 
     if (!productId) {
       console.error("ELYVORR: Product ID is missing.");
+
       return;
     }
 
     try {
-      console.log("ELYVORR: ADD TO BAG", {
-        sessionId,
-        productId,
-      });
-
       await addItemMutation({
         sessionId,
         productId,
@@ -212,15 +219,17 @@ export function CartProvider({ children }) {
       return {
         ...item,
 
-        name: item.name ?? product?.name,
+        name: item.name ?? product?.name ?? "",
 
-        volume: item.volume ?? product?.volume,
+        volume: item.volume ?? product?.volume ?? "",
 
-        image: item.image ?? product?.image,
+        image: item.image ?? product?.image ?? "",
 
-        reviews: item.reviews ?? product?.reviews,
+        reviews: item.reviews ?? product?.reviews ?? 0,
 
-        oldPrice: item.oldPrice ?? product?.oldPrice,
+        oldPrice: item.oldPrice ?? product?.oldPrice ?? 0,
+
+        price: item.price ?? product?.price ?? 0,
 
         discount:
           item.discount !== undefined
@@ -244,6 +253,15 @@ export function CartProvider({ children }) {
   // ===================================================
   // SUBTOTAL
   // ===================================================
+  //
+  // IMPORTANT:
+  //
+  // Backend uses product.price as the actual selling
+  // price.
+  //
+  // Therefore subtotal must also use product.price.
+  //
+  // ===================================================
 
   const subtotal = useMemo(() => {
     return enrichedCartItems.reduce(
@@ -254,23 +272,40 @@ export function CartProvider({ children }) {
   }, [enrichedCartItems]);
 
   // ===================================================
-  // DISCOUNT
+  // DISPLAY SAVING
+  // ===================================================
+  //
+  // IMPORTANT:
+  //
+  // oldPrice = MRP/reference price
+  // price    = actual selling price
+  //
+  // Example:
+  //
+  // oldPrice = ₹399
+  // price    = ₹299
+  //
+  // Saving = ₹100
+  //
+  // This is DISPLAY SAVING only.
+  //
+  // It must NOT be subtracted from subtotal again,
+  // because product.price is already the selling price.
+  //
   // ===================================================
 
   const discount = useMemo(() => {
     return enrichedCartItems.reduce((total, item) => {
+      const oldPrice = Number(item.oldPrice || 0);
+
       const currentPrice = Number(item.price || 0);
 
       const quantity = Number(item.quantity || 0);
 
-      const discountPercent = Math.min(
-        100,
-        Math.max(0, Number(item.discount || 0))
-      );
+      const savingPerItem =
+        oldPrice > currentPrice ? oldPrice - currentPrice : 0;
 
-      const discountPerItem = (currentPrice * discountPercent) / 100;
-
-      return total + discountPerItem * quantity;
+      return total + savingPerItem * quantity;
     }, 0);
   }, [enrichedCartItems]);
 
@@ -303,9 +338,12 @@ export function CartProvider({ children }) {
 
     subtotal,
 
+    // Display saving only.
+    // DO NOT subtract this from subtotal.
     discount,
 
-    // Useful for checkout/debugging
+    // IMPORTANT:
+    // PaymentPage must use this exact session ID.
     sessionId,
   };
 

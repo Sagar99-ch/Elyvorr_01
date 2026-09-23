@@ -10,7 +10,7 @@ import { api } from "../../../convex/_generated/api";
 // =====================================================
 
 function getSessionId() {
-  const storageKey = "elyvorr_session_id";
+  const storageKey = "elyvorr_cart_session_v2";
 
   let sessionId = localStorage.getItem(storageKey);
 
@@ -71,7 +71,7 @@ function PaymentPage() {
   // to paid even when the mobile/UPI browser callback is missed.
   const trackedOrder = useQuery(
     api.orders.getOrderById,
-    trackingOrderId ? { orderId: trackingOrderId } : "skip"
+    trackingOrderId ? { orderId: trackingOrderId, sessionId } : "skip"
   );
 
   const clearCart = useMutation(api.cart.clearCart);
@@ -187,7 +187,7 @@ function PaymentPage() {
   // GST REMOVED
   // =====================================================
 
-  const grandTotal = Math.max(0, subtotal - discount + shipping);
+  const grandTotal = Math.max(0, subtotal + shipping);
 
   // =====================================================
   // ITEM COUNT
