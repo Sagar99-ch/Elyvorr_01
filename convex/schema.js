@@ -142,6 +142,15 @@ export default defineSchema({
     orderStatus: v.string(),
 
     // ===================================================
+    // INVENTORY RESERVATION
+    // ===================================================
+
+    stockReserved: v.optional(v.boolean()),
+    stockReservedAt: v.optional(v.number()),
+    stockReservationExpiresAt: v.optional(v.number()),
+    stockReleasedAt: v.optional(v.number()),
+
+    // ===================================================
     // OLD SHIPROCKET FIELDS
     // ===================================================
     // Kept temporarily so existing orders/data do not
@@ -246,6 +255,17 @@ export default defineSchema({
   })
     .index("by_token", ["sessionToken"])
     .index("by_admin", ["adminId"]),
+
+  // =====================================================
+  // ADMIN LOGIN ATTEMPTS (brute-force protection)
+  // =====================================================
+
+  adminLoginAttempts: defineTable({
+    email: v.string(),
+    failedCount: v.number(),
+    lockedUntil: v.optional(v.number()),
+    lastAttemptAt: v.number(),
+  }).index("by_email", ["email"]),
 
   // =====================================================
   // ADMIN OTP

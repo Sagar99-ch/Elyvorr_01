@@ -1,5 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { requireAdmin } from "./lib/requireAdmin";
 
 /**
  * ==================================================
@@ -115,9 +117,22 @@ export const createPendingOrder = mutation({
         throw new Error(`${product.name} has an invalid selling price.`);
       }
 
-      if (quantity <= 0) {
+      if (!Number.isInteger(quantity)) {
         throw new Error(`${product.name} has an invalid quantity.`);
       }
+
+      /**
+       * ================================================
+       * RESERVE STOCK
+       * ================================================
+       * Stock is reserved in the same Convex mutation that
+       * creates the pending order. This prevents two checkout
+       * requests from both buying the last available units.
+       */
+
+      await ctx.db.patch(product._id, {
+        stock: product.stock - quantity,
+      });
 
       /**
        * ================================================
@@ -285,12 +300,35 @@ export const createPendingOrder = mutation({
       orderStatus: "pending",
 
       /**
+       * INVENTORY RESERVATION
+       *
+       * Reserved until payment succeeds or the reservation
+       * expires. The scheduled release mutation restores
+       * stock only while the order is still unpaid.
+       */
+      stockReserved: true,
+      stockReservedAt: now,
+      stockReservationExpiresAt: now + 30 * 60 * 1000,
+
+      /**
        * TIMESTAMPS
        */
 
       createdAt: now,
       updatedAt: now,
     });
+
+    /**
+     * ================================================
+     * AUTO-RELEASE STOCK AFTER 30 MINUTES
+     * ================================================
+     */
+
+    await ctx.scheduler.runAt(
+      now + 30 * 60 * 1000,
+      internal.orders.releaseExpiredStock,
+      { orderId }
+    );
 
     /**
      * ================================================
@@ -310,6 +348,64 @@ export const createPendingOrder = mutation({
 
       itemCount: orderItems.reduce((count, item) => count + item.quantity, 0),
     };
+  },
+});
+
+/**
+ * ==================================================
+ * INTERNAL — RELEASE EXPIRED STOCK RESERVATION
+ * ==================================================
+ */
+
+export const releaseExpiredStock = internalMutation({
+  args: {
+    orderId: v.id("orders"),
+  },
+
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+
+    if (!order || !order.stockReserved) {
+      return { success: true, released: false };
+    }
+
+    // Payment already succeeded/cancelled/released elsewhere.
+    if (
+      order.paymentStatus !== "pending" ||
+      order.orderStatus === "cancelled"
+    ) {
+      return { success: true, released: false };
+    }
+
+    if (
+      order.stockReservationExpiresAt &&
+      Date.now() < order.stockReservationExpiresAt
+    ) {
+      return { success: true, released: false };
+    }
+
+    for (const item of order.items) {
+      const product = await ctx.db.get(item.productId);
+
+      if (product) {
+        await ctx.db.patch(product._id, {
+          stock: Math.max(
+            0,
+            Number(product.stock || 0) + Number(item.quantity || 0)
+          ),
+        });
+      }
+    }
+
+    await ctx.db.patch(args.orderId, {
+      stockReserved: false,
+      stockReleasedAt: Date.now(),
+      paymentStatus: "expired",
+      orderStatus: "cancelled",
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, released: true };
   },
 });
 
@@ -374,40 +470,18 @@ export const getOrdersBySession = query({
  * ==================================================
  * MARK ORDER AS PAID
  * ==================================================
+ * REMOVED (security fix): this mutation used to let
+ * ANY caller mark ANY order as "paid" with a made-up
+ * paymentId, with no signature or ownership check —
+ * a direct payment-bypass exploit. It was unused by
+ * the frontend. Payments are correctly confirmed only
+ * through convex/payment.js (verifyPayment, which
+ * checks the Razorpay HMAC signature) and the
+ * razorpay-webhook route in convex/http.js. Do not
+ * re-add a function like this without a signature
+ * check identical to those two paths.
+ * ==================================================
  */
-
-export const markOrderPaid = mutation({
-  args: {
-    orderId: v.id("orders"),
-    paymentId: v.string(),
-  },
-
-  handler: async (ctx, args) => {
-    const order = await ctx.db.get(args.orderId);
-
-    if (!order) {
-      throw new Error("Order not found.");
-    }
-
-    if (order.paymentStatus === "paid") {
-      return {
-        success: true,
-        message: "Order is already paid.",
-      };
-    }
-
-    await ctx.db.patch(args.orderId, {
-      paymentStatus: "paid",
-      orderStatus: "confirmed",
-      paymentId: args.paymentId,
-      updatedAt: Date.now(),
-    });
-
-    return {
-      success: true,
-    };
-  },
-});
 
 /**
  * ==================================================
@@ -418,6 +492,10 @@ export const markOrderPaid = mutation({
 export const cancelOrder = mutation({
   args: {
     orderId: v.id("orders"),
+    // Ownership check: caller must supply the same sessionId
+    // that created the order, so a random visitor cannot
+    // cancel someone else's order just by guessing/leaking an ID.
+    sessionId: v.string(),
   },
 
   handler: async (ctx, args) => {
@@ -427,13 +505,34 @@ export const cancelOrder = mutation({
       throw new Error("Order not found.");
     }
 
+    if (order.sessionId !== args.sessionId) {
+      throw new Error("You are not authorized to cancel this order.");
+    }
+
     if (order.paymentStatus === "paid") {
       throw new Error("A paid order cannot be cancelled this way.");
+    }
+
+    if (order.stockReserved) {
+      for (const item of order.items) {
+        const product = await ctx.db.get(item.productId);
+
+        if (product) {
+          await ctx.db.patch(product._id, {
+            stock: Math.max(
+              0,
+              Number(product.stock || 0) + Number(item.quantity || 0)
+            ),
+          });
+        }
+      }
     }
 
     await ctx.db.patch(args.orderId, {
       paymentStatus: "cancelled",
       orderStatus: "cancelled",
+      stockReserved: false,
+      stockReleasedAt: Date.now(),
       updatedAt: Date.now(),
     });
 
@@ -450,9 +549,13 @@ export const cancelOrder = mutation({
  */
 
 export const getAllOrders = query({
-  args: {},
+  args: {
+    sessionToken: v.string(),
+  },
 
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     return await ctx.db.query("orders").order("desc").collect();
   },
 });
@@ -465,11 +568,14 @@ export const getAllOrders = query({
 
 export const updateOrderStatus = mutation({
   args: {
+    sessionToken: v.string(),
     orderId: v.id("orders"),
     orderStatus: v.string(),
   },
 
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     const order = await ctx.db.get(args.orderId);
 
     if (!order) {
@@ -637,10 +743,13 @@ export const getOrderTrackingByNumber = query({
 
 export const deleteOrder = mutation({
   args: {
+    sessionToken: v.string(),
     orderId: v.id("orders"),
   },
 
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     const order = await ctx.db.get(args.orderId);
 
     if (!order) {

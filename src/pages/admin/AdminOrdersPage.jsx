@@ -18,13 +18,19 @@ import {
 
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useAdminSessionToken } from "../../hooks/useAdminSessionToken";
 
 function AdminOrdersPage() {
   // =====================================================
   // CONVEX
   // =====================================================
 
-  const orders = useQuery(api.orders.getAllOrders);
+  const sessionToken = useAdminSessionToken();
+
+  const orders = useQuery(
+    api.orders.getAllOrders,
+    sessionToken ? { sessionToken } : "skip"
+  );
 
   const updateOrderStatus = useMutation(api.orders.updateOrderStatus);
 
@@ -336,6 +342,7 @@ function AdminOrdersPage() {
       await updateOrderStatus({
         orderId: order._id,
         orderStatus: normalizedStatus,
+        sessionToken,
       });
     } catch (err) {
       console.error("ELYVORR: Failed to update order status:", err);
@@ -365,6 +372,7 @@ function AdminOrdersPage() {
     try {
       await deleteOrder({
         orderId: order._id,
+        sessionToken,
       });
 
       if (selectedOrder?._id === order._id) {
@@ -400,6 +408,7 @@ function AdminOrdersPage() {
     try {
       await createShipment({
         orderId: order._id,
+        sessionToken,
       });
     } catch (err) {
       console.error("ELYVORR: Failed to create Delhivery shipment:", err);
@@ -431,6 +440,7 @@ function AdminOrdersPage() {
     try {
       await trackShipment({
         orderId: order._id,
+        sessionToken,
       });
     } catch (err) {
       console.error("ELYVORR: Failed to track Delhivery shipment:", err);
@@ -462,6 +472,7 @@ function AdminOrdersPage() {
     try {
       const result = await generateLabel({
         orderId: order._id,
+        sessionToken,
       });
 
       if (result?.pdfUrl) {
@@ -521,6 +532,7 @@ function AdminOrdersPage() {
     try {
       await createPickupRequest({
         orderId: order._id,
+        sessionToken,
         pickupDate,
         pickupTime,
         expectedPackageCount: 1,

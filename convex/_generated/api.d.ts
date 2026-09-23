@@ -16,6 +16,7 @@ import type * as contacts from "../contacts.js";
 import type * as delhivery from "../delhivery.js";
 import type * as delhiveryActions from "../delhiveryActions.js";
 import type * as http from "../http.js";
+import type * as lib_requireAdmin from "../lib/requireAdmin.js";
 import type * as orderTracking from "../orderTracking.js";
 import type * as orders from "../orders.js";
 import type * as payment from "../payment.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   delhivery: typeof delhivery;
   delhiveryActions: typeof delhiveryActions;
   http: typeof http;
+  "lib/requireAdmin": typeof lib_requireAdmin;
   orderTracking: typeof orderTracking;
   orders: typeof orders;
   payment: typeof payment;

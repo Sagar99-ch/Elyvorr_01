@@ -134,12 +134,17 @@ export const markPaymentSuccess = internalMutation({
     // MARK PAYMENT AS PAID
     // -------------------------------------------------
 
+    // The stock was reserved when the pending order was created.
+    // Payment success permanently consumes that reservation.
     await ctx.db.patch(args.orderId, {
       paymentStatus: "paid",
 
       orderStatus: "confirmed",
 
       paymentId: args.paymentId,
+
+      stockReserved: false,
+      stockReleasedAt: undefined,
 
       updatedAt: Date.now(),
     });
@@ -302,6 +307,9 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
       orderStatus: "confirmed",
 
       paymentId: args.paymentId,
+
+      stockReserved: false,
+      stockReleasedAt: undefined,
 
       updatedAt: Date.now(),
     });
