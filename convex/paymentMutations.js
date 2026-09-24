@@ -1,5 +1,4 @@
 import { internalMutation, internalQuery } from "./_generated/server";
-
 import { v } from "convex/values";
 
 /**
@@ -61,6 +60,39 @@ export const getOrderByRazorpayOrderId = internalQuery({
 
 /**
  * =====================================================
+ * GET ORDER BY PAYMENT ID
+ * INTERNAL ONLY
+ * =====================================================
+ *
+ * Used to prevent one Razorpay Payment ID from being
+ * attached to multiple ELYVORR orders.
+ *
+ * =====================================================
+ */
+
+export const getOrderByPaymentId = internalQuery({
+  args: {
+    paymentId: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const paymentId = args.paymentId.trim();
+
+    if (!paymentId) {
+      return null;
+    }
+
+    const order = await ctx.db
+      .query("orders")
+      .withIndex("by_paymentId", (q) => q.eq("paymentId", paymentId))
+      .unique();
+
+    return order ?? null;
+  },
+});
+
+/**
+ * =====================================================
  * SAVE RAZORPAY ORDER ID
  * INTERNAL ONLY
  * =====================================================
@@ -69,11 +101,16 @@ export const getOrderByRazorpayOrderId = internalQuery({
 export const saveRazorpayOrderId = internalMutation({
   args: {
     orderId: v.id("orders"),
-
     razorpayOrderId: v.string(),
   },
 
   handler: async (ctx, args) => {
+    const razorpayOrderId = args.razorpayOrderId.trim();
+
+    if (!razorpayOrderId) {
+      throw new Error("Razorpay Order ID is required.");
+    }
+
     const order = await ctx.db.get(args.orderId);
 
     if (!order) {
@@ -84,23 +121,36 @@ export const saveRazorpayOrderId = internalMutation({
      * =============================================
      * PREVENT REPLACING RAZORPAY ORDER ID
      * =============================================
-     *
-     * Once a Razorpay Order ID has been linked,
-     * another Razorpay Order ID cannot replace it.
      */
 
-    if (
-      order.razorpayOrderId &&
-      order.razorpayOrderId !== args.razorpayOrderId
-    ) {
+    if (order.razorpayOrderId && order.razorpayOrderId !== razorpayOrderId) {
       throw new Error(
         "A different Razorpay order is already linked to this order."
       );
     }
 
-    await ctx.db.patch(args.orderId, {
-      razorpayOrderId: args.razorpayOrderId,
+    /**
+     * =============================================
+     * PREVENT SAME RAZORPAY ORDER ID ON
+     * ANOTHER ELYVORR ORDER
+     * =============================================
+     */
 
+    const existingOrder = await ctx.db
+      .query("orders")
+      .withIndex("by_razorpayOrderId", (q) =>
+        q.eq("razorpayOrderId", razorpayOrderId)
+      )
+      .unique();
+
+    if (existingOrder && existingOrder._id !== args.orderId) {
+      throw new Error(
+        "This Razorpay order is already linked to another ELYVORR order."
+      );
+    }
+
+    await ctx.db.patch(args.orderId, {
+      razorpayOrderId,
       updatedAt: Date.now(),
     });
 
@@ -109,6 +159,47 @@ export const saveRazorpayOrderId = internalMutation({
     };
   },
 });
+
+/**
+ * =====================================================
+ * CHECK PAYMENT ID REUSE
+ * INTERNAL ONLY
+ * =====================================================
+ *
+ * A Razorpay Payment ID must belong to only ONE
+ * ELYVORR order.
+ *
+ * =====================================================
+ */
+
+async function validatePaymentIdOwnership(ctx, orderId, paymentId) {
+  const existingOrder = await ctx.db
+    .query("orders")
+    .withIndex("by_paymentId", (q) => q.eq("paymentId", paymentId))
+    .unique();
+
+  if (!existingOrder) {
+    return;
+  }
+
+  /**
+   * Same payment already belongs to this order.
+   * This is safe/idempotent.
+   */
+
+  if (existingOrder._id === orderId) {
+    return;
+  }
+
+  /**
+   * Same Razorpay Payment ID is already attached
+   * to another order.
+   */
+
+  throw new Error(
+    "This Razorpay payment is already associated with another order."
+  );
+}
 
 /**
  * =====================================================
@@ -130,11 +221,22 @@ export const saveRazorpayOrderId = internalMutation({
 export const markPaymentSuccess = internalMutation({
   args: {
     orderId: v.id("orders"),
-
     paymentId: v.string(),
   },
 
   handler: async (ctx, args) => {
+    /**
+     * =============================================
+     * VALIDATE PAYMENT ID
+     * =============================================
+     */
+
+    const paymentId = args.paymentId.trim();
+
+    if (!paymentId) {
+      throw new Error("Payment ID is required.");
+    }
+
     const order = await ctx.db.get(args.orderId);
 
     if (!order) {
@@ -150,25 +252,34 @@ export const markPaymentSuccess = internalMutation({
      */
 
     if (order.paymentStatus === "paid") {
+      /**
+       * If this order is already paid with a different
+       * payment ID, do NOT silently accept another ID.
+       */
+
+      if (order.paymentId && order.paymentId !== paymentId) {
+        throw new Error("This order is already paid with a different payment.");
+      }
+
       return {
         success: true,
-
         alreadyPaid: true,
-
         message: "Payment is already marked as paid.",
       };
     }
 
     /**
      * =============================================
+     * PAYMENT ID OWNERSHIP
+     * =============================================
+     */
+
+    await validatePaymentIdOwnership(ctx, args.orderId, paymentId);
+
+    /**
+     * =============================================
      * CHECK STOCK RESERVATION EXPIRY
      * =============================================
-     *
-     * Order was created with a temporary stock
-     * reservation.
-     *
-     * Do not accept payment after reservation
-     * expiry.
      */
 
     if (
@@ -189,10 +300,8 @@ export const markPaymentSuccess = internalMutation({
 
     await ctx.db.patch(args.orderId, {
       paymentStatus: "paid",
-
       orderStatus: "confirmed",
-
-      paymentId: args.paymentId,
+      paymentId,
 
       /**
        * Stock was already deducted when the
@@ -203,7 +312,6 @@ export const markPaymentSuccess = internalMutation({
        */
 
       stockReserved: false,
-
       stockReleasedAt: undefined,
 
       updatedAt: Date.now(),
@@ -211,9 +319,7 @@ export const markPaymentSuccess = internalMutation({
 
     return {
       success: true,
-
       alreadyPaid: false,
-
       message: "Order marked as paid.",
     };
   },
@@ -242,6 +348,8 @@ export const markPaymentSuccess = internalMutation({
  *        ↓
  * Verify amount
  *        ↓
+ * Verify Payment ID ownership
+ *        ↓
  * Mark PAID
  *
  * =====================================================
@@ -250,23 +358,35 @@ export const markPaymentSuccess = internalMutation({
 export const markPaymentSuccessByRazorpayOrderId = internalMutation({
   args: {
     razorpayOrderId: v.string(),
-
     paymentId: v.string(),
-
-    /**
-     * Razorpay sends amount in paise.
-     *
-     * Example:
-     *
-     * ₹999
-     * =
-     * 99900 paise
-     */
-
     amountPaise: v.number(),
   },
 
   handler: async (ctx, args) => {
+    /**
+     * =============================================
+     * VALIDATE WEBHOOK PAYMENT DATA
+     * =============================================
+     */
+
+    const razorpayOrderId = args.razorpayOrderId.trim();
+
+    const paymentId = args.paymentId.trim();
+
+    const receivedAmountPaise = Number(args.amountPaise);
+
+    if (!razorpayOrderId) {
+      throw new Error("Razorpay Order ID is required.");
+    }
+
+    if (!paymentId) {
+      throw new Error("Payment ID is required.");
+    }
+
+    if (!Number.isFinite(receivedAmountPaise) || receivedAmountPaise <= 0) {
+      throw new Error("Invalid payment amount.");
+    }
+
     /**
      * =============================================
      * FIND ORDER
@@ -276,7 +396,7 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
     const order = await ctx.db
       .query("orders")
       .withIndex("by_razorpayOrderId", (q) =>
-        q.eq("razorpayOrderId", args.razorpayOrderId)
+        q.eq("razorpayOrderId", razorpayOrderId)
       )
       .unique();
 
@@ -291,28 +411,22 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
       console.error("ELYVORR WEBHOOK: ORDER NOT FOUND");
 
-      console.error("Razorpay Order ID:", args.razorpayOrderId);
+      console.error("Razorpay Order ID:", razorpayOrderId);
 
       console.error("=================================================");
 
       return {
         success: false,
-
         orderFound: false,
-
         alreadyPaid: false,
-
         message: "Order not found.",
       };
     }
 
     console.log("ELYVORR WEBHOOK: ORDER FOUND", {
       orderId: order._id,
-
       orderNumber: order.orderNumber,
-
       razorpayOrderId: order.razorpayOrderId,
-
       paymentStatus: order.paymentStatus,
     });
 
@@ -327,24 +441,42 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
      */
 
     if (order.paymentStatus === "paid") {
+      /**
+       * If the order is already paid, the incoming
+       * payment ID must either match the stored ID
+       * or already belong to this same order.
+       */
+
+      if (order.paymentId && order.paymentId !== paymentId) {
+        throw new Error("Order is already paid with a different payment.");
+      }
+
+      await validatePaymentIdOwnership(ctx, order._id, paymentId);
+
       console.log("ELYVORR WEBHOOK: ORDER ALREADY PAID", order.orderNumber);
 
       return {
         success: true,
-
         orderFound: true,
-
         alreadyPaid: true,
-
         orderId: order._id,
-
         orderNumber: order.orderNumber,
-
-        paymentId: order.paymentId || args.paymentId,
-
+        paymentId: order.paymentId || paymentId,
         message: "Order already marked as paid.",
       };
     }
+
+    /**
+     * =============================================
+     * PAYMENT ID OWNERSHIP
+     * =============================================
+     *
+     * IMPORTANT:
+     * Prevents the same Razorpay Payment ID from
+     * being attached to another order.
+     */
+
+    await validatePaymentIdOwnership(ctx, order._id, paymentId);
 
     /**
      * =============================================
@@ -386,13 +518,9 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
     const expectedAmountPaise = Math.round(Number(order.total || 0) * 100);
 
-    const receivedAmountPaise = Number(args.amountPaise || 0);
-
     console.log("ELYVORR WEBHOOK: AMOUNT CHECK", {
       orderNumber: order.orderNumber,
-
       expectedAmountPaise,
-
       receivedAmountPaise,
     });
 
@@ -402,20 +530,13 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
      * =============================================
      */
 
-    if (
-      receivedAmountPaise > 0 &&
-      receivedAmountPaise !== expectedAmountPaise
-    ) {
+    if (receivedAmountPaise !== expectedAmountPaise) {
       console.error("ELYVORR WEBHOOK: PAYMENT AMOUNT MISMATCH", {
         orderNumber: order.orderNumber,
-
         expectedAmountPaise,
-
         receivedAmountPaise,
-
-        razorpayOrderId: args.razorpayOrderId,
-
-        paymentId: args.paymentId,
+        razorpayOrderId,
+        paymentId,
       });
 
       throw new Error("Payment amount does not match order amount.");
@@ -429,10 +550,8 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
     await ctx.db.patch(order._id, {
       paymentStatus: "paid",
-
       orderStatus: "confirmed",
-
-      paymentId: args.paymentId,
+      paymentId,
 
       /**
        * Stock was already deducted during
@@ -440,7 +559,6 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
        */
 
       stockReserved: false,
-
       stockReleasedAt: undefined,
 
       updatedAt: Date.now(),
@@ -460,9 +578,9 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
     console.log("Order Number:", order.orderNumber);
 
-    console.log("Razorpay Order:", args.razorpayOrderId);
+    console.log("Razorpay Order:", razorpayOrderId);
 
-    console.log("Payment ID:", args.paymentId);
+    console.log("Payment ID:", paymentId);
 
     console.log("Amount Paise:", receivedAmountPaise);
 
@@ -482,19 +600,12 @@ export const markPaymentSuccessByRazorpayOrderId = internalMutation({
 
     return {
       success: true,
-
       orderFound: true,
-
       alreadyPaid: false,
-
       orderId: order._id,
-
       orderNumber: order.orderNumber,
-
-      paymentId: args.paymentId,
-
+      paymentId,
       amountPaise: receivedAmountPaise,
-
       message: "Order marked as paid.",
     };
   },

@@ -3,7 +3,6 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-
 import crypto from "crypto";
 
 /**
@@ -42,9 +41,7 @@ async function razorpayRequest(path, options = {}) {
 
     headers: {
       Authorization: `Basic ${auth}`,
-
       "Content-Type": "application/json",
-
       ...(options.headers || {}),
     },
   });
@@ -78,23 +75,12 @@ async function razorpayRequest(path, options = {}) {
  * CREATE RAZORPAY ORDER
  * =====================================================
  *
- * IMPORTANT:
+ * SECURITY:
  *
- * Frontend amount is NOT trusted.
- *
- * Convex order.total is the source of truth.
- *
- * Flow:
- *
- * Frontend
- *    ↓
- * Convex orderId
- *    ↓
- * Read order from DB
- *    ↓
- * order.total
- *    ↓
- * Razorpay amount
+ * - Frontend amount is NOT trusted.
+ * - Convex order.total is source of truth.
+ * - Customer sessionId must match order.sessionId.
+ * - Razorpay order is linked to the Convex order.
  *
  * =====================================================
  */
@@ -104,9 +90,14 @@ export const createRazorpayOrder = action({
     orderId: v.id("orders"),
 
     /**
+     * Customer session ownership.
+     */
+    sessionId: v.string(),
+
+    /**
      * Kept for frontend compatibility.
      *
-     * NOT trusted.
+     * NOT TRUSTED.
      */
     amount: v.optional(v.number()),
 
@@ -129,6 +120,19 @@ export const createRazorpayOrder = action({
 
     if (!order) {
       throw new Error("Order not found.");
+    }
+
+    /**
+     * =============================================
+     * CUSTOMER OWNERSHIP
+     * =============================================
+     *
+     * Prevent another browser/session from
+     * creating a Razorpay order for this order.
+     */
+
+    if (order.sessionId !== args.sessionId) {
+      throw new Error("You are not authorized to pay for this order.");
     }
 
     /**
@@ -281,20 +285,28 @@ export const createRazorpayOrder = action({
  *
  * SECURITY FLOW:
  *
+ * sessionId
+ *     ↓
+ * Verify order ownership
+ *     ↓
  * razorpay_order_id
- *        +
+ *     +
  * razorpay_payment_id
- *        +
+ *     +
  * razorpay_signature
- *        ↓
+ *     ↓
  * HMAC SHA256
- *        ↓
+ *     ↓
  * Compare signature
- *        ↓
- * Verify order ID
- *        ↓
+ *     ↓
+ * Verify Razorpay order ID
+ *     ↓
+ * Fetch actual Razorpay payment
+ *     ↓
  * Verify payment amount
- *        ↓
+ *     ↓
+ * Verify payment status
+ *     ↓
  * Mark order paid
  *
  * =====================================================
@@ -303,6 +315,11 @@ export const createRazorpayOrder = action({
 export const verifyPayment = action({
   args: {
     orderId: v.id("orders"),
+
+    /**
+     * Customer session ownership.
+     */
+    sessionId: v.string(),
 
     razorpayOrderId: v.string(),
 
@@ -345,6 +362,18 @@ export const verifyPayment = action({
 
     /**
      * =============================================
+     * CUSTOMER OWNERSHIP
+     * =============================================
+     */
+
+    if (order.sessionId !== args.sessionId) {
+      throw new Error(
+        "You are not authorized to verify payment for this order."
+      );
+    }
+
+    /**
+     * =============================================
      * ALREADY PAID
      * =============================================
      */
@@ -367,10 +396,6 @@ export const verifyPayment = action({
      * =============================================
      * RAZORPAY ORDER ID CHECK
      * =============================================
-     *
-     * The Razorpay order returned by checkout
-     * MUST match the Razorpay order created
-     * for this Convex order.
      */
 
     if (!order.razorpayOrderId) {
@@ -407,17 +432,6 @@ export const verifyPayment = action({
      * =============================================
      * CREATE SIGNATURE
      * =============================================
-     *
-     * Razorpay signature:
-     *
-     * HMAC_SHA256(
-     *   razorpay_order_id +
-     *   "|" +
-     *   razorpay_payment_id,
-     *   secret
-     * )
-     *
-     * =============================================
      */
 
     const payload = `${args.razorpayOrderId}|${args.razorpayPaymentId}`;
@@ -453,17 +467,6 @@ export const verifyPayment = action({
     /**
      * =============================================
      * FETCH PAYMENT FROM RAZORPAY
-     * =============================================
-     *
-     * Signature verification proves that the
-     * callback was generated using the secret.
-     *
-     * We additionally fetch the actual payment
-     * from Razorpay and verify:
-     *
-     * - payment belongs to our Razorpay order
-     * - payment amount matches Convex order
-     *
      * =============================================
      */
 
@@ -508,16 +511,15 @@ export const verifyPayment = action({
      * =============================================
      * PAYMENT STATUS CHECK
      * =============================================
-     *
-     * Razorpay payment should be captured/
-     * authorized before we mark the order paid.
      */
 
     const paymentStatus = String(payment.status || "").toLowerCase();
 
     if (paymentStatus !== "captured" && paymentStatus !== "authorized") {
       throw new Error(
-        `Razorpay payment is not successful. Current status: ${paymentStatus || "unknown"}`
+        `Razorpay payment is not successful. Current status: ${
+          paymentStatus || "unknown"
+        }`
       );
     }
 

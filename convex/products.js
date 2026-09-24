@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/requireAdmin";
 
 // =====================================================
 // GET ALL PRODUCTS
@@ -43,6 +44,8 @@ export const getById = query({
 
 export const add = mutation({
   args: {
+    sessionToken: v.string(),
+
     name: v.string(),
     volume: v.string(),
     price: v.float64(),
@@ -55,6 +58,7 @@ export const add = mutation({
     badge: v.optional(v.string()),
     image: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
+
     stock: v.float64(),
 
     // =================================================
@@ -71,9 +75,15 @@ export const add = mutation({
   },
 
   handler: async (ctx, args) => {
-    // -----------------------------
+    // =================================================
+    // ADMIN AUTHENTICATION
+    // =================================================
+
+    await requireAdmin(ctx, args.sessionToken);
+
+    // =================================================
     // VALIDATION
-    // -----------------------------
+    // =================================================
 
     if (args.price < 0) {
       throw new Error("Price cannot be negative.");
@@ -106,9 +116,9 @@ export const add = mutation({
       throw new Error("Height must be greater than 0.");
     }
 
-    // -----------------------------
+    // =================================================
     // INSERT PRODUCT
-    // -----------------------------
+    // =================================================
 
     return await ctx.db.insert("products", {
       name: args.name,
@@ -120,9 +130,13 @@ export const add = mutation({
       discount: args.discount ?? 0,
 
       reviews: args.reviews ?? 0,
+
       badge: args.badge,
+
       image: args.image,
+
       images: args.images,
+
       stock: args.stock,
 
       // Delhivery
@@ -145,6 +159,8 @@ export const add = mutation({
 
 export const update = mutation({
   args: {
+    sessionToken: v.string(),
+
     id: v.id("products"),
 
     name: v.optional(v.string()),
@@ -159,6 +175,7 @@ export const update = mutation({
     badge: v.optional(v.string()),
     image: v.optional(v.string()),
     images: v.optional(v.array(v.string())),
+
     stock: v.optional(v.float64()),
 
     // =================================================
@@ -175,9 +192,15 @@ export const update = mutation({
   },
 
   handler: async (ctx, args) => {
-    // -----------------------------
+    // =================================================
+    // ADMIN AUTHENTICATION
+    // =================================================
+
+    await requireAdmin(ctx, args.sessionToken);
+
+    // =================================================
     // FIND PRODUCT
-    // -----------------------------
+    // =================================================
 
     const product = await ctx.db.get(args.id);
 
@@ -185,9 +208,9 @@ export const update = mutation({
       throw new Error("Product not found.");
     }
 
-    // -----------------------------
+    // =================================================
     // VALIDATION
-    // -----------------------------
+    // =================================================
 
     if (args.price !== undefined && args.price < 0) {
       throw new Error("Price cannot be negative.");
@@ -220,15 +243,15 @@ export const update = mutation({
       throw new Error("Height must be greater than 0.");
     }
 
-    // -----------------------------
-    // REMOVE ID FROM PATCH OBJECT
-    // -----------------------------
+    // =================================================
+    // REMOVE ID + SESSION TOKEN FROM PATCH OBJECT
+    // =================================================
 
-    const { id, ...updates } = args;
+    const { id, sessionToken, ...updates } = args;
 
-    // -----------------------------
+    // =================================================
     // UPDATE PRODUCT
-    // -----------------------------
+    // =================================================
 
     await ctx.db.patch(id, updates);
 
@@ -242,20 +265,41 @@ export const update = mutation({
 
 export const updateStock = mutation({
   args: {
+    sessionToken: v.string(),
+
     id: v.id("products"),
+
     stock: v.float64(),
   },
 
   handler: async (ctx, args) => {
+    // =================================================
+    // ADMIN AUTHENTICATION
+    // =================================================
+
+    await requireAdmin(ctx, args.sessionToken);
+
+    // =================================================
+    // VALIDATION
+    // =================================================
+
     if (args.stock < 0) {
       throw new Error("Stock cannot be negative.");
     }
+
+    // =================================================
+    // FIND PRODUCT
+    // =================================================
 
     const product = await ctx.db.get(args.id);
 
     if (!product) {
       throw new Error("Product not found.");
     }
+
+    // =================================================
+    // UPDATE STOCK
+    // =================================================
 
     await ctx.db.patch(args.id, {
       stock: args.stock,
@@ -271,15 +315,31 @@ export const updateStock = mutation({
 
 export const remove = mutation({
   args: {
+    sessionToken: v.string(),
+
     id: v.id("products"),
   },
 
   handler: async (ctx, args) => {
+    // =================================================
+    // ADMIN AUTHENTICATION
+    // =================================================
+
+    await requireAdmin(ctx, args.sessionToken);
+
+    // =================================================
+    // FIND PRODUCT
+    // =================================================
+
     const product = await ctx.db.get(args.id);
 
     if (!product) {
       throw new Error("Product not found.");
     }
+
+    // =================================================
+    // DELETE PRODUCT
+    // =================================================
 
     await ctx.db.delete(args.id);
 

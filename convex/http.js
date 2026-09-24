@@ -61,7 +61,7 @@ http.route({
         return jsonResponse(
           {
             success: false,
-            error: "Webhook secret not configured.",
+            error: "Webhook configuration error.",
           },
           500
         );
@@ -71,8 +71,8 @@ http.route({
       // RAW BODY
       //
       // IMPORTANT:
-      // Razorpay webhook signature must be calculated
-      // against the exact raw request body.
+      // Razorpay signature must be calculated against
+      // the exact raw request body.
       // =================================================
 
       const rawBody = await request.text();
@@ -83,7 +83,7 @@ http.route({
         return jsonResponse(
           {
             success: false,
-            error: "Empty webhook body.",
+            error: "Invalid webhook request.",
           },
           400
         );
@@ -101,7 +101,7 @@ http.route({
         return jsonResponse(
           {
             success: false,
-            error: "Missing webhook signature.",
+            error: "Invalid webhook request.",
           },
           400
         );
@@ -110,8 +110,7 @@ http.route({
       // =================================================
       // CALCULATE HMAC SHA256
       //
-      // Web Crypto works in Convex HTTP actions,
-      // so Node "crypto" is NOT required here.
+      // Web Crypto works in Convex HTTP actions.
       // =================================================
 
       const encoder = new TextEncoder();
@@ -175,7 +174,7 @@ http.route({
         return jsonResponse(
           {
             success: false,
-            error: "Invalid webhook JSON.",
+            error: "Invalid webhook request.",
           },
           400
         );
@@ -187,10 +186,20 @@ http.route({
 
       const event = payload?.event;
 
+      if (typeof event !== "string" || !event.trim()) {
+        console.error("ELYVORR: Razorpay webhook event missing.");
+
+        return jsonResponse(
+          {
+            success: false,
+            error: "Invalid webhook event.",
+          },
+          400
+        );
+      }
+
       console.log("=================================================");
-
       console.log("ELYVORR RAZORPAY WEBHOOK RECEIVED");
-
       console.log("Event:", event);
 
       // =================================================
@@ -199,17 +208,22 @@ http.route({
 
       const payment = payload?.payload?.payment?.entity;
 
-      const paymentId = payment?.id;
+      const paymentId =
+        typeof payment?.id === "string" ? payment.id.trim() : "";
 
-      const razorpayOrderId = payment?.order_id;
+      const razorpayOrderId =
+        typeof payment?.order_id === "string" ? payment.order_id.trim() : "";
 
-      const amountPaise = Number(payment?.amount || 0);
+      const amountPaise = Number(payment?.amount);
 
       console.log("Payment ID:", paymentId || "missing");
 
       console.log("Razorpay Order ID:", razorpayOrderId || "missing");
 
-      console.log("Amount Paise:", amountPaise);
+      console.log(
+        "Amount Paise:",
+        Number.isFinite(amountPaise) ? amountPaise : "invalid"
+      );
 
       // =================================================
       // PAYMENT CAPTURED
@@ -226,13 +240,13 @@ http.route({
           return jsonResponse(
             {
               success: false,
-              error: "Missing payment information.",
+              error: "Invalid payment information.",
             },
             400
           );
         }
 
-        if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+        if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) {
           console.error("ELYVORR: Invalid payment amount.");
 
           return jsonResponse(
@@ -247,10 +261,10 @@ http.route({
         // -----------------------------------------------
         // MARK PAYMENT SUCCESS
         //
-        // This mutation:
-        // - finds order by Razorpay order ID
-        // - verifies amount
-        // - prevents duplicate payment processing
+        // Internal mutation:
+        // - finds order by Razorpay Order ID
+        // - verifies exact amount
+        // - prevents duplicate processing
         // - marks order paid
         // - consumes stock reservation
         // -----------------------------------------------
@@ -272,7 +286,11 @@ http.route({
           success: true,
           received: true,
           event,
-          result,
+          result: {
+            success: result?.success === true,
+            orderFound: result?.orderFound === true,
+            alreadyPaid: result?.alreadyPaid === true,
+          },
         });
       }
 
@@ -291,13 +309,13 @@ http.route({
           return jsonResponse(
             {
               success: false,
-              error: "Missing payment information.",
+              error: "Invalid payment information.",
             },
             400
           );
         }
 
-        if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+        if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) {
           console.error("ELYVORR: order.paid has invalid amount.");
 
           return jsonResponse(
@@ -328,7 +346,11 @@ http.route({
           success: true,
           received: true,
           event,
-          result,
+          result: {
+            success: result?.success === true,
+            orderFound: result?.orderFound === true,
+            alreadyPaid: result?.alreadyPaid === true,
+          },
         });
       }
 
@@ -338,14 +360,14 @@ http.route({
 
       if (event === "payment.failed") {
         console.log("ELYVORR: Razorpay payment failed:", {
-          paymentId,
-          razorpayOrderId,
+          paymentId: paymentId || "missing",
+          razorpayOrderId: razorpayOrderId || "missing",
         });
 
         // IMPORTANT:
         // We intentionally do NOT mark the order as paid.
         //
-        // Stock reservation remains available until its
+        // Stock reservation remains available until
         // expiration/cancel flow handles it.
 
         return jsonResponse({
@@ -374,13 +396,14 @@ http.route({
 
       console.error("=================================================");
 
+      // IMPORTANT:
+      // Do not expose internal Convex/database errors
+      // to the public webhook caller.
+
       return jsonResponse(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Webhook processing failed.",
+          error: "Webhook processing failed.",
         },
         500
       );

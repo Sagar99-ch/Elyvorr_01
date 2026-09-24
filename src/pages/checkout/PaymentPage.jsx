@@ -340,6 +340,9 @@ function PaymentPage() {
       const razorpayOrder = await createRazorpayOrder({
         orderId: pendingOrder.orderId,
 
+        // Security: verify customer owns this order
+        sessionId,
+
         amount: pendingOrder.total,
 
         orderNumber: pendingOrder.orderNumber,
@@ -425,6 +428,9 @@ function PaymentPage() {
 
             const verification = await verifyPayment({
               orderId: pendingOrder.orderId,
+
+              // Security: verify customer owns this order
+              sessionId,
 
               razorpayOrderId: response.razorpay_order_id,
 

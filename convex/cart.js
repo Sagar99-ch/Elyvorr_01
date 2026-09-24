@@ -1,11 +1,36 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-/**
- * ==================================================
- * GET CART
- * ==================================================
- */
+// ==================================================
+// HELPERS
+// ==================================================
+
+function validateSessionId(sessionId) {
+  if (typeof sessionId !== "string") {
+    throw new Error("Invalid session.");
+  }
+
+  const normalized = sessionId.trim();
+
+  if (!normalized) {
+    throw new Error("Invalid session.");
+  }
+
+  // Prevent unnecessarily large session identifiers
+  if (normalized.length > 200) {
+    throw new Error("Invalid session.");
+  }
+
+  return normalized;
+}
+
+function validateQuantity(quantity) {
+  return Number.isInteger(quantity) && quantity > 0 && quantity <= 100;
+}
+
+// ==================================================
+// GET CART
+// ==================================================
 
 export const getCart = query({
   args: {
@@ -13,9 +38,11 @@ export const getCart = query({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const cartItems = await ctx.db
       .query("cart")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .collect();
 
     const items = [];
@@ -28,13 +55,15 @@ export const getCart = query({
         continue;
       }
 
+      // Ignore corrupted/invalid cart quantities
+      if (!validateQuantity(cartItem.quantity)) {
+        continue;
+      }
+
       items.push({
         ...product,
-
         id: product._id,
-
         quantity: cartItem.quantity,
-
         cartId: cartItem._id,
       });
     }
@@ -43,14 +72,9 @@ export const getCart = query({
   },
 });
 
-/**
- * ==================================================
- * CLEANUP STALE CART ITEMS
- *
- * Missing/deleted products ke cart records ko
- * permanently remove karta hai.
- * ==================================================
- */
+// ==================================================
+// CLEANUP STALE CART ITEMS
+// ==================================================
 
 export const cleanupCart = mutation({
   args: {
@@ -58,9 +82,11 @@ export const cleanupCart = mutation({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const cartItems = await ctx.db
       .query("cart")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .collect();
 
     let removedCount = 0;
@@ -68,9 +94,12 @@ export const cleanupCart = mutation({
     for (const cartItem of cartItems) {
       const product = await ctx.db.get(cartItem.productId);
 
-      if (!product || !product.isActive) {
+      if (
+        !product ||
+        !product.isActive ||
+        !validateQuantity(cartItem.quantity)
+      ) {
         await ctx.db.delete(cartItem._id);
-
         removedCount++;
       }
     }
@@ -82,11 +111,9 @@ export const cleanupCart = mutation({
   },
 });
 
-/**
- * ==================================================
- * ADD TO CART
- * ==================================================
- */
+// ==================================================
+// ADD TO CART
+// ==================================================
 
 export const addItem = mutation({
   args: {
@@ -95,6 +122,8 @@ export const addItem = mutation({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const product = await ctx.db.get(args.productId);
 
     if (!product) {
@@ -105,22 +134,30 @@ export const addItem = mutation({
       throw new Error("This product is currently unavailable");
     }
 
-    if (product.stock <= 0) {
+    if (!Number.isInteger(product.stock) || product.stock <= 0) {
       throw new Error("This product is out of stock");
     }
 
     const existingItem = await ctx.db
       .query("cart")
       .withIndex("by_session_product", (q) =>
-        q.eq("sessionId", args.sessionId).eq("productId", args.productId)
+        q.eq("sessionId", sessionId).eq("productId", args.productId)
       )
       .unique();
 
     if (existingItem) {
+      if (!validateQuantity(existingItem.quantity)) {
+        throw new Error("Invalid cart quantity.");
+      }
+
       const newQuantity = existingItem.quantity + 1;
 
       if (newQuantity > product.stock) {
         throw new Error("Not enough stock available");
+      }
+
+      if (newQuantity > 100) {
+        throw new Error("Maximum quantity reached");
       }
 
       await ctx.db.patch(existingItem._id, {
@@ -132,7 +169,7 @@ export const addItem = mutation({
     }
 
     return await ctx.db.insert("cart", {
-      sessionId: args.sessionId,
+      sessionId,
       productId: args.productId,
       quantity: 1,
       createdAt: Date.now(),
@@ -141,11 +178,9 @@ export const addItem = mutation({
   },
 });
 
-/**
- * ==================================================
- * INCREASE QUANTITY
- * ==================================================
- */
+// ==================================================
+// INCREASE QUANTITY
+// ==================================================
 
 export const increaseQuantity = mutation({
   args: {
@@ -154,16 +189,26 @@ export const increaseQuantity = mutation({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const product = await ctx.db.get(args.productId);
 
     if (!product) {
       throw new Error("Product not found");
     }
 
+    if (!product.isActive) {
+      throw new Error("This product is currently unavailable");
+    }
+
+    if (!Number.isInteger(product.stock) || product.stock <= 0) {
+      throw new Error("This product is out of stock");
+    }
+
     const cartItem = await ctx.db
       .query("cart")
       .withIndex("by_session_product", (q) =>
-        q.eq("sessionId", args.sessionId).eq("productId", args.productId)
+        q.eq("sessionId", sessionId).eq("productId", args.productId)
       )
       .unique();
 
@@ -171,10 +216,18 @@ export const increaseQuantity = mutation({
       throw new Error("Cart item not found");
     }
 
+    if (!validateQuantity(cartItem.quantity)) {
+      throw new Error("Invalid cart quantity.");
+    }
+
     const newQuantity = cartItem.quantity + 1;
 
     if (newQuantity > product.stock) {
       throw new Error("Not enough stock available");
+    }
+
+    if (newQuantity > 100) {
+      throw new Error("Maximum quantity reached");
     }
 
     await ctx.db.patch(cartItem._id, {
@@ -186,11 +239,9 @@ export const increaseQuantity = mutation({
   },
 });
 
-/**
- * ==================================================
- * DECREASE QUANTITY
- * ==================================================
- */
+// ==================================================
+// DECREASE QUANTITY
+// ==================================================
 
 export const decreaseQuantity = mutation({
   args: {
@@ -199,10 +250,12 @@ export const decreaseQuantity = mutation({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const cartItem = await ctx.db
       .query("cart")
       .withIndex("by_session_product", (q) =>
-        q.eq("sessionId", args.sessionId).eq("productId", args.productId)
+        q.eq("sessionId", sessionId).eq("productId", args.productId)
       )
       .unique();
 
@@ -210,9 +263,13 @@ export const decreaseQuantity = mutation({
       return false;
     }
 
+    if (!validateQuantity(cartItem.quantity)) {
+      await ctx.db.delete(cartItem._id);
+      return true;
+    }
+
     if (cartItem.quantity <= 1) {
       await ctx.db.delete(cartItem._id);
-
       return true;
     }
 
@@ -225,11 +282,9 @@ export const decreaseQuantity = mutation({
   },
 });
 
-/**
- * ==================================================
- * REMOVE FROM CART
- * ==================================================
- */
+// ==================================================
+// REMOVE FROM CART
+// ==================================================
 
 export const removeItem = mutation({
   args: {
@@ -238,10 +293,12 @@ export const removeItem = mutation({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const cartItem = await ctx.db
       .query("cart")
       .withIndex("by_session_product", (q) =>
-        q.eq("sessionId", args.sessionId).eq("productId", args.productId)
+        q.eq("sessionId", sessionId).eq("productId", args.productId)
       )
       .unique();
 
@@ -255,11 +312,9 @@ export const removeItem = mutation({
   },
 });
 
-/**
- * ==================================================
- * CLEAR CART
- * ==================================================
- */
+// ==================================================
+// CLEAR CART
+// ==================================================
 
 export const clearCart = mutation({
   args: {
@@ -267,9 +322,11 @@ export const clearCart = mutation({
   },
 
   handler: async (ctx, args) => {
+    const sessionId = validateSessionId(args.sessionId);
+
     const cartItems = await ctx.db
       .query("cart")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .collect();
 
     for (const item of cartItems) {
@@ -292,7 +349,12 @@ export const buyNow = mutation({
   },
 
   handler: async (ctx, args) => {
-    // Check product
+    const sessionId = validateSessionId(args.sessionId);
+
+    // ==================================================
+    // CHECK PRODUCT
+    // ==================================================
+
     const product = await ctx.db.get(args.productId);
 
     if (!product) {
@@ -303,23 +365,29 @@ export const buyNow = mutation({
       throw new Error("This product is currently unavailable");
     }
 
-    if (product.stock <= 0) {
+    if (!Number.isInteger(product.stock) || product.stock <= 0) {
       throw new Error("This product is out of stock");
     }
 
-    // Clear existing cart
+    // ==================================================
+    // CLEAR EXISTING CART
+    // ==================================================
+
     const existingCartItems = await ctx.db
       .query("cart")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .collect();
 
     for (const item of existingCartItems) {
       await ctx.db.delete(item._id);
     }
 
-    // Add selected product
+    // ==================================================
+    // ADD SELECTED PRODUCT
+    // ==================================================
+
     const cartId = await ctx.db.insert("cart", {
-      sessionId: args.sessionId,
+      sessionId,
       productId: args.productId,
       quantity: 1,
       createdAt: Date.now(),

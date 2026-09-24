@@ -587,7 +587,6 @@ export const login = mutation({
 // =========================================================
 // FAILED LOGIN HELPER
 // =========================================================
-
 async function recordFailedLogin(ctx, email, existingAttempt) {
   const now = Date.now();
 
@@ -595,7 +594,7 @@ async function recordFailedLogin(ctx, email, existingAttempt) {
     await ctx.db.insert("adminLoginAttempts", {
       email,
 
-      attempts: 1,
+      failedCount: 1,
 
       lastAttemptAt: now,
 
@@ -605,19 +604,18 @@ async function recordFailedLogin(ctx, email, existingAttempt) {
     return;
   }
 
-  const attempts = Number(existingAttempt.attempts || 0) + 1;
+  const failedCount = Number(existingAttempt.failedCount || 0) + 1;
 
-  const shouldLock = attempts >= LOGIN_MAX_ATTEMPTS;
+  const shouldLock = failedCount >= LOGIN_MAX_ATTEMPTS;
 
   await ctx.db.patch(existingAttempt._id, {
-    attempts,
+    failedCount,
 
     lastAttemptAt: now,
 
     lockedUntil: shouldLock ? now + LOGIN_LOCKOUT_DURATION : undefined,
   });
 }
-
 // =========================================================
 // VERIFY ADMIN SESSION
 // =========================================================
