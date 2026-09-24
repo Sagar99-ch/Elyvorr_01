@@ -30,7 +30,7 @@ import { useCart } from "../../context/CartContext";
 // =====================================================
 
 function getSessionId() {
-  const storageKey = "elyvorr_session_id";
+  const storageKey = "elyvorr_cart_session_v2";
 
   let sessionId = localStorage.getItem(storageKey);
 
@@ -41,7 +41,6 @@ function getSessionId() {
 
   return sessionId;
 }
-
 // =====================================================
 // PRODUCT DETAILS PAGE
 // =====================================================

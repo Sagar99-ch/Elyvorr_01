@@ -160,18 +160,36 @@ export const createPendingOrder = mutation({
 
         /**
          * Existing reservation is still active.
+         *
+         * Reuse the existing payment order instead of
+         * creating another order / reserving stock again.
          */
         if (expiry > now) {
-          throw new Error(
-            "You already have an active payment order. Please complete payment or wait for the current reservation to expire."
-          );
+          return {
+            orderId: existingOrder._id,
+            orderNumber: existingOrder.orderNumber,
+
+            subtotal: existingOrder.subtotal,
+            discount: existingOrder.discount || 0,
+            shipping: existingOrder.shipping,
+            gst: existingOrder.gst,
+            total: existingOrder.total,
+
+            stockReservationExpiresAt: existingOrder.stockReservationExpiresAt,
+
+            itemCount: (existingOrder.items || []).reduce(
+              (count, item) => count + Number(item.quantity || 0),
+              0
+            ),
+
+            reusedExistingOrder: true,
+          };
         }
 
         /**
          * Existing reservation expired.
          * Release stock.
          */
-
         for (const item of existingOrder.items || []) {
           const product = await ctx.db.get(item.productId);
 
@@ -194,7 +212,6 @@ export const createPendingOrder = mutation({
         });
       }
     }
-
     /**
      * ================================================
      * BUILD ORDER ITEMS
