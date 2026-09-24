@@ -10,13 +10,19 @@ import {
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useAdminSessionToken } from "../../hooks/useAdminSessionToken";
 
 function AdminDashboard() {
+  const sessionToken = useAdminSessionToken();
+
   // =====================================================
   // REAL CONVEX DATA
   // =====================================================
 
-  const dashboard = useQuery(api.adminDashboard.getDashboardStats);
+  const dashboard = useQuery(
+    api.adminDashboard.getDashboardStats,
+    sessionToken ? { sessionToken } : "skip"
+  );
 
   // =====================================================
   // LOADING

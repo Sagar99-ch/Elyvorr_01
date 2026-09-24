@@ -3,9 +3,9 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/requireAdmin";
 
 const STAGING_BASE_URL = "https://staging-express.delhivery.com";
-
 const PRODUCTION_BASE_URL = "https://track.delhivery.com";
 
 /**
@@ -72,11 +72,8 @@ async function request(path, options = {}) {
 
     headers: {
       Authorization: `Token ${getToken()}`,
-
       Accept: "application/json",
-
       "Content-Type": "application/json",
-
       ...(options.headers || {}),
     },
   });
@@ -96,9 +93,7 @@ async function formRequest(path, body) {
 
     headers: {
       Authorization: `Token ${getToken()}`,
-
       Accept: "application/json",
-
       "Content-Type": "application/x-www-form-urlencoded",
     },
 
@@ -151,11 +146,8 @@ function packageDetails(items) {
 
   return {
     weight: Number(weight.toFixed(3)),
-
     length: Math.round(length),
-
     breadth: Math.round(breadth),
-
     height: Math.round(height),
   };
 }
@@ -167,18 +159,20 @@ function packageDetails(items) {
  */
 
 export const testConnection = action({
-  args: {},
+  args: {
+    sessionToken: v.string(),
+  },
 
-  handler: async () => {
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     const response = await request(
       "/c/api/pin-codes/json/?filter_codes=456010"
     );
 
     return {
       success: true,
-
       environment: process.env.DELHIVERY_ENV || "staging",
-
       response,
     };
   },
@@ -187,6 +181,11 @@ export const testConnection = action({
 /**
  * =========================================================
  * CHECK SERVICEABILITY
+ *
+ * PUBLIC
+ *
+ * This is intentionally public because customers
+ * can check pincode serviceability during checkout.
  * =========================================================
  */
 
@@ -214,11 +213,8 @@ export const checkServiceability = action({
 
     return {
       success: true,
-
       pincode,
-
       serviceable,
-
       response,
     };
   },
@@ -233,14 +229,17 @@ export const checkServiceability = action({
 export const createShipment = action({
   args: {
     orderId: v.id("orders"),
+    sessionToken: v.string(),
   },
 
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     /**
      * getOrderForDelhivery()
      *
      * IMPORTANT:
-     * This now enriches old order items with current
+     * This enriches old order items with current
      * product shipping data.
      */
 
@@ -267,13 +266,9 @@ export const createShipment = action({
     if (order.delhiveryWaybill) {
       return {
         success: true,
-
         alreadyCreated: true,
-
         waybill: order.delhiveryWaybill,
-
         trackingUrl: order.trackingUrl || null,
-
         status: order.delhiveryStatus || null,
       };
     }
@@ -307,10 +302,6 @@ export const createShipment = action({
 
     /**
      * Package
-     *
-     * OLD ORDERS:
-     * Shipping data was added by getOrderForDelhivery()
-     * from the products table.
      */
 
     const pkg = packageDetails(order.items);
@@ -522,9 +513,12 @@ export const createShipment = action({
 export const trackShipment = action({
   args: {
     orderId: v.id("orders"),
+    sessionToken: v.string(),
   },
 
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     const order = await ctx.runQuery(internal.delhivery.getOrderForDelhivery, {
       orderId: args.orderId,
     });
@@ -611,9 +605,12 @@ export const trackShipment = action({
 export const generateLabel = action({
   args: {
     orderId: v.id("orders"),
+    sessionToken: v.string(),
   },
 
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     const order = await ctx.runQuery(internal.delhivery.getOrderForDelhivery, {
       orderId: args.orderId,
     });
@@ -665,9 +662,13 @@ export const createPickupRequest = action({
     pickupTime: v.string(),
 
     expectedPackageCount: v.optional(v.number()),
+
+    sessionToken: v.string(),
   },
 
   handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+
     const order = await ctx.runQuery(internal.delhivery.getOrderForDelhivery, {
       orderId: args.orderId,
     });

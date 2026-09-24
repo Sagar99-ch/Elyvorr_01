@@ -1,9 +1,19 @@
 import { query } from "./_generated/server";
+import { v } from "convex/values";
+import { requireAdmin } from "./lib/requireAdmin";
 
 export const getDashboardStats = query({
-  args: {},
+  args: {
+    sessionToken: v.string(),
+  },
 
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    // =====================================================
+    // ADMIN AUTHENTICATION
+    // =====================================================
+
+    await requireAdmin(ctx, args.sessionToken);
+
     // =====================================================
     // PRODUCTS
     // =====================================================
@@ -66,6 +76,7 @@ export const getDashboardStats = query({
       revenue,
       activeProducts: activeProducts.length,
       pendingOrders,
+
       lowStockCount: lowStockProducts.length,
 
       lowStockProducts: lowStockProducts.slice(0, 5).map((product) => ({

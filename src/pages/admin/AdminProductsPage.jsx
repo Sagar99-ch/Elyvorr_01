@@ -14,8 +14,15 @@ import {
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useAdminSessionToken } from "../../hooks/useAdminSessionToken";
 
 function AdminProductsPage() {
+  // =====================================================
+  // ADMIN SESSION
+  // =====================================================
+
+  const sessionToken = useAdminSessionToken();
+
   // =====================================================
   // CONVEX
   // =====================================================
@@ -294,10 +301,14 @@ function AdminProductsPage() {
         await updateProduct({
           id: editingProduct._id,
           ...productData,
+          sessionToken,
           isActive: form.isActive,
         });
       } else {
-        await addProduct(productData);
+        await addProduct({
+          ...productData,
+          sessionToken,
+        });
       }
 
       setShowForm(false);
@@ -324,6 +335,7 @@ function AdminProductsPage() {
     try {
       await removeProduct({
         id: deleteProduct._id,
+        sessionToken,
       });
 
       setDeleteProduct(null);
@@ -361,6 +373,7 @@ function AdminProductsPage() {
     try {
       await updateStock({
         id: stockProduct._id,
+        sessionToken,
         stock,
       });
 
