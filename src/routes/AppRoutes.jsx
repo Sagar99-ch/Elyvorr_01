@@ -12,7 +12,8 @@ import ProductDetailsPage from "../pages/customer/ProductDetailsPage";
 import BagPage from "../pages/customer/BagPage";
 import OrderSuccessPage from "../pages/customer/OrderSuccessPage";
 import TrackOrderPage from "../pages/customer/TrackOrderPage";
-
+import TermsConditionsPage from "../pages/customer/TermsConditionsPage";
+import PrivacyPolicyPage from "../pages/customer/PrivacyPolicyPage";
 // ==================== Checkout Pages ====================
 
 import CheckoutPage from "../pages/customer/CheckoutPage";
@@ -28,13 +29,11 @@ import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminEnquiriesPage from "../pages/admin/AdminEnquiriesPage";
 import AdminSettingsPage from "../pages/admin/AdminSettingsPage";
-import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 
 const AppRoutes = () => {
   return (
     <Routes>
       {/* ==================== CUSTOMER ROUTES ==================== */}
-
       <Route path="/" element={<HomePage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/collection" element={<CollectionPage />} />
@@ -42,25 +41,21 @@ const AppRoutes = () => {
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/product/:id" element={<ProductDetailsPage />} />
       <Route path="/bag" element={<BagPage />} />
-
       {/* ==================== CHECKOUT ROUTES ==================== */}
-
       <Route path="/checkout" element={<CheckoutPage />} />
       <Route path="/checkout/address" element={<AddressPage />} />
       <Route path="/checkout/payment" element={<PaymentPage />} />
       <Route path="/order-success" element={<OrderSuccessPage />} />
       <Route path="/track-order" element={<TrackOrderPage />} />
-
+      {/* ==================== LEGAL PAGES ==================== */}
+      <Route path="/terms" element={<TermsConditionsPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />{" "}
       {/* ==================== ADMIN ROUTES ==================== */}
-
       <Route path="/admin/login" element={<AdminLoginPage />} />
-
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
 
         <Route path="products" element={<AdminProductsPage />} />
-
-        <Route path="inventory" element={<AdminInventoryPage />} />
 
         <Route path="orders" element={<AdminOrdersPage />} />
 
