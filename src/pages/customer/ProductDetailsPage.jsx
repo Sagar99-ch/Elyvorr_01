@@ -502,7 +502,7 @@ function ProductDetailsPage() {
 
                 <div className="mt-4">
                   <div className="flex h-12 w-28 items-center justify-center rounded-xl border-2 border-[#181818] bg-[#181818] text-sm font-semibold text-white">
-                    50ml
+                    {product.volume || "N/A"}
                   </div>
                 </div>
               </div>
