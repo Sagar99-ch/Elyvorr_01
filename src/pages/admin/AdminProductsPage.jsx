@@ -1058,11 +1058,11 @@ function AdminProductsPage() {
                   {form.image2 && (
                     <div className="mt-3 h-24 w-24 overflow-hidden rounded-xl border border-[#E5DED3] bg-[#F7F4EE]">
                       <img
-                        src={form.image2}
+                        src={form.image2.trim()}
                         alt="Second product preview"
                         className="h-full w-full object-contain p-2"
                         onError={(event) => {
-                          event.currentTarget.style.display = "none";
+                          console.error("Image 2 failed:", form.image2);
                         }}
                       />
                     </div>
@@ -1087,11 +1087,11 @@ function AdminProductsPage() {
                   {form.image3 && (
                     <div className="mt-3 h-24 w-24 overflow-hidden rounded-xl border border-[#E5DED3] bg-[#F7F4EE]">
                       <img
-                        src={form.image3}
+                        src={form.image3.trim()}
                         alt="Third product preview"
                         className="h-full w-full object-contain p-2"
                         onError={(event) => {
-                          event.currentTarget.style.display = "none";
+                          console.error("Image 3 failed:", form.image3);
                         }}
                       />
                     </div>
@@ -1118,8 +1118,11 @@ function AdminProductsPage() {
                                 src={image}
                                 alt={`Product preview ${index + 1}`}
                                 className="h-full w-full object-contain p-2"
-                                onError={(event) => {
-                                  event.currentTarget.style.display = "none";
+                                onError={() => {
+                                  console.error(
+                                    `Product gallery image ${index + 1} failed:`,
+                                    image
+                                  );
                                 }}
                               />
                             </div>
