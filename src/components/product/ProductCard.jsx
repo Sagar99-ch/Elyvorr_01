@@ -138,6 +138,18 @@ function ProductCard({ product }) {
             IMPORTANT:
             object-contain is used on ALL screen sizes.
             This prevents mobile image cropping/zooming.
+
+            NOTE:
+            `loading="lazy"` was removed here. On iOS Safari,
+            lazy-loaded <img> tags nested inside a <button>
+            (inside a relative/overflow-hidden parent, with
+            no explicit width/height attributes) frequently
+            never trigger their intersection check, so the
+            image silently never loads — even though the
+            exact same markup works fine on Chrome
+            (Android/Windows). Since this grid only has a
+            handful of products, eager loading has no real
+            performance cost and fixes the iPhone bug.
         ================================================= */}
 
         {product.image ? (
@@ -156,7 +168,8 @@ function ProductCard({ product }) {
             <img
               src={product.image}
               alt={product.name}
-              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
               className="
                 block
                 h-full
