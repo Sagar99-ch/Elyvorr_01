@@ -133,7 +133,6 @@ function FeaturedProducts() {
               product={{
                 ...product,
                 id: product._id,
-                volume: "50ml",
               }}
               onAddToBag={addToBag}
             />

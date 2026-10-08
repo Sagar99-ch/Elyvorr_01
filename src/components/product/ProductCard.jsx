@@ -307,7 +307,7 @@ function ProductCard({ product }) {
             sm:text-sm
           "
         >
-          Eau de Parfum • {product.volume || "50ml"}
+          Eau de Parfum • {product.volume || "N/A"}
         </p>
 
         {/* =================================================

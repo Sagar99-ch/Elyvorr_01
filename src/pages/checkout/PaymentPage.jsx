@@ -10,7 +10,7 @@ import { api } from "../../../convex/_generated/api";
 // =====================================================
 
 function getSessionId() {
-  const storageKey = "elyvorr_cart_session_v2";
+  const storageKey = "elyvorr_session_id";
 
   let sessionId = localStorage.getItem(storageKey);
 
@@ -151,33 +151,10 @@ function PaymentPage() {
   }, [cartItems]);
 
   // =====================================================
-  // LIVE DISCOUNT
-  //
-  // Example:
-  // oldPrice = 399
-  // price = 299
-  //
-  // Discount = 100
+  // =====================================================
+  // DISCOUNT REMOVED
   // =====================================================
 
-  const discount = useMemo(() => {
-    if (!cartItems) return 0;
-
-    return cartItems.reduce((total, item) => {
-      const oldPrice = Number(item.oldPrice || 0);
-
-      const currentPrice = Number(item.price || 0);
-
-      const quantity = Number(item.quantity || 0);
-
-      const savingPerItem =
-        oldPrice > currentPrice ? oldPrice - currentPrice : 0;
-
-      return total + savingPerItem * quantity;
-    }, 0);
-  }, [cartItems]);
-
-  // =====================================================
   // SHIPPING
   // =====================================================
 
@@ -340,9 +317,6 @@ function PaymentPage() {
       const razorpayOrder = await createRazorpayOrder({
         orderId: pendingOrder.orderId,
 
-        // Security: verify customer owns this order
-        sessionId,
-
         amount: pendingOrder.total,
 
         orderNumber: pendingOrder.orderNumber,
@@ -428,9 +402,6 @@ function PaymentPage() {
 
             const verification = await verifyPayment({
               orderId: pendingOrder.orderId,
-
-              // Security: verify customer owns this order
-              sessionId,
 
               razorpayOrderId: response.razorpay_order_id,
 
@@ -1059,15 +1030,6 @@ function PaymentPage() {
 
                   <span className="font-semibold">
                     ₹{subtotal.toLocaleString("en-IN")}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span className="text-[#777]">Discount</span>
-
-                  <span className="font-semibold text-[#2F8F46]">
-                    -₹
-                    {discount.toLocaleString("en-IN")}
                   </span>
                 </div>
 
