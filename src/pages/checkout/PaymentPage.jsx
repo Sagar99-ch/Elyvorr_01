@@ -315,11 +315,11 @@ function PaymentPage() {
       // =================================================
 
       await createRazorpayOrder({
-        orderId: pendingOrder.orderId,
-        sessionId,
+        orderId,
         amount,
-        orderNumber: pendingOrder.orderNumber,
+        orderNumber,
       });
+
       if (!razorpayOrder?.razorpayOrderId) {
         throw new Error("Unable to create Razorpay order.");
       }
