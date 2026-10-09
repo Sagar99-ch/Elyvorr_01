@@ -10,7 +10,7 @@ import { api } from "../../../convex/_generated/api";
 // =====================================================
 
 function getSessionId() {
-  const storageKey = "elyvorr_session_id";
+  const storageKey = "elyvorr_cart_session_v2";
 
   let sessionId = localStorage.getItem(storageKey);
 
@@ -298,6 +298,23 @@ function PaymentPage() {
         sessionId,
       });
 
+      // Invalid/unavailable products were removed from the bag.
+      if (pendingOrder?.success === false) {
+        setPaymentLoading(false);
+        setPaymentError(
+          pendingOrder.message ||
+            "Some products are no longer available. Please review your bag."
+        );
+
+        setTimeout(() => {
+          navigate("/bag", {
+            replace: true,
+          });
+        }, 1500);
+
+        return;
+      }
+
       if (!pendingOrder?.orderId) {
         throw new Error("Unable to create your order.");
       }
@@ -314,10 +331,11 @@ function PaymentPage() {
       // CREATE RAZORPAY ORDER
       // =================================================
 
-      await createRazorpayOrder({
-        orderId,
-        amount,
-        orderNumber,
+      // Amount is NOT sent: the server uses order.total.
+      const razorpayOrder = await createRazorpayOrder({
+        orderId: pendingOrder.orderId,
+        sessionId,
+        orderNumber: pendingOrder.orderNumber,
       });
 
       if (!razorpayOrder?.razorpayOrderId) {
@@ -400,6 +418,8 @@ function PaymentPage() {
 
             const verification = await verifyPayment({
               orderId: pendingOrder.orderId,
+
+              sessionId,
 
               razorpayOrderId: response.razorpay_order_id,
 
