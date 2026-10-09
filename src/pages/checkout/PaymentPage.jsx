@@ -314,12 +314,11 @@ function PaymentPage() {
       // CREATE RAZORPAY ORDER
       // =================================================
 
-      const razorpayOrder = await createRazorpayOrder({
-        orderId: pendingOrder.orderId,
-
-        amount: pendingOrder.total,
-
-        orderNumber: pendingOrder.orderNumber,
+      await createRazorpayOrder({
+        orderId,
+        sessionId,
+        amount,
+        orderNumber,
       });
 
       if (!razorpayOrder?.razorpayOrderId) {
